@@ -1,10 +1,11 @@
-import sys,os,time,pickle,imp,hashlib,importlib,json,itertools
+import sys,os,time,pickle,imp,hashlib,importlib,json,itertools,re
 import ROOT as R
 import toolkit
 
 from data.CommonDataInterface import DataConfig
 
 
+isDebug = True
 
 class RetrieveEfficiency(object):
   def __init__(self,cfg_path):
@@ -107,7 +108,7 @@ class Caliber(object):
     
 
   def LoadingCfg(self):
-    cfg.gene_cfg = json.loads(self.cfg_str)
+    self.gene_cfg = json.loads(self.cfg_str)
     toolkit.DumpDictToJson(self.gene_cfg) 
 
     for key,value in self.gene_cfg.iteritems():
@@ -152,9 +153,9 @@ class Caliber(object):
     self.DumpResuls(dish,
         error_var,errorStat,errorScale,errorModel)
 
-  def  Retrieve_raw(self):
-    
-
+  #def  Retrieve_raw(self):
+  @staticmethod
+  @toolkit.TimeCalculator(isDebug) 
   def GetVarsList(rfile,Pnominal,Pvars):
 
     Rvars      = re.compile(Pvars)
@@ -168,14 +169,14 @@ class Caliber(object):
 
       if Rnominal.match(obj_name) \
         or (cls_name.find('TDirectory')==-1) \
-        or (name.find('SysLUMI')!=-1):
+        or (obj_name.find('SysLUMI')!=-1):
         continue
 
-      var = ptn.split(name)[0]
+      var = Rvars.split(obj_name)[0]
       if var in Vars:
-        Vars[var].append(name)
+        Vars[var].append(obj_name)
       else:
-        Vars[var] = [name]
+        Vars[var] = [obj_name]
     for var in Vars: 
       if len(Vars[var])==1:
         Vars[var].append(Pnominal)
@@ -188,7 +189,7 @@ class Caliber(object):
 
 
 def main():
-  worker = RetrieveEfficiency('data/TPConfig.py')
+  worker = RetrieveEfficiency('./XBTagging/data/TPConfig.py')
  
 if __name__ == '__main__':
   main()

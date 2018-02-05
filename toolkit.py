@@ -5,6 +5,8 @@ import pickle
 import re
 import sys
 import json
+import os
+import commands
 
 #better, fexible 
 class TimeCalculator(object):
@@ -67,7 +69,7 @@ def mkdir(path):
 	if not os.path.isdir(path):
 		res = commands.getstatusoutput('mkdir -p %s'%(path)) 
 		if not res[0]:
-			raise IOError(res[1])
+			raise IOError(res[1])#'{0:}'.format(res[1]))
 
 def DumpDictToJson(data,f=sys.stdout):
     json_str = json.dumps(data,indent=4,sort_keys=True)

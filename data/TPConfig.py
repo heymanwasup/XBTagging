@@ -1,13 +1,13 @@
 class Settings(object):
   def __init__(self):
-    self.runtag = 'test'
+    self.rtag = 'test'
     self.input  = './input/test.root'
     self.output = './output/'
 
     self.nToys      = 10000
     self.binnings   = 'CalNew'
     self.nominal    = False
-    self.histformat = 'r21a1'
+    self.format = 'r21a1'
 
     self.cats     = 'ptCalib'
     self.cats_add = {

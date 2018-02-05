@@ -67,7 +67,7 @@ class DataConfig(object):
     self.binnings['Mu']     = [0,20,60,300]
   
   def HistFormats(self):
-    self.histformat = {}
+    self.format = {}
     r21a1_nominal = {
       'hist' : '{var:}/{sample:}_TP_1ptag2jet_{mva:}_{mu:}_em_{eta:}_{tp:}{wp:}{jet:}Pt',
       'var'  : 'SysNominal',
@@ -81,7 +81,7 @@ class DataConfig(object):
       'variation' : r21a1_variation,
     }
 
-    self.histformat['r21a1'] = r21a1
+    self.format['r21a1'] = r21a1
 
   def Categories(self):  
     self.cats = {}
