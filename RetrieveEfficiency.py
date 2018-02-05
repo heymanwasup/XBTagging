@@ -97,13 +97,13 @@ class Caliber(object):
       f.write(self.cfg_str)
 
     
-   ''' 
-    foo = lambda x:'' if x==0 else x
-    n = 0
-    while os.path.isfile(toolkit.format(cfg_json,{'t':foo(n)})):
-      with open(toolkit.format(cfg_json,{'t':foo(n)}),'r') as f:
-        cfg_str = json.dumps(json.loads(f.read()),indent=4,sort_keys=True)
-   '''     
+    ''' 
+      foo = lambda x:'' if x==0 else x
+      n = 0
+      while os.path.isfile(toolkit.format(cfg_json,{'t':foo(n)})):
+        with open(toolkit.format(cfg_json,{'t':foo(n)}),'r') as f:
+          cfg_str = json.dumps(json.loads(f.read()),indent=4,sort_keys=True)
+    '''     
     
 
   def LoadingCfg(self):
