@@ -126,9 +126,9 @@ class Caliber(object):
     if self.Niter == len(self.cat_itms):
       status = False
     else:
-      self.cat = self.cat_itms[Niter]
+      self.cat = self.cat_itms[self.Niter]
       self.cat_str = '_'.join(map(str,self.cat))
-      Niter += 1
+      self.Niter += 1
       status = True
     return status
 
@@ -168,8 +168,8 @@ class Caliber(object):
     raw_cache = '{0:}/{1:}___RAW_{2:}.json'.format(self.cache_dir,self.ctag,self.cat_str) 
     if not os.path.isfile(raw_data_cache):
       raw_data = {}
-      for 
-      raw_data[self._format[]] = GetHists('var')
+      #for 
+      raw_data[self._format] = GetHists('var')
 
   @staticmethod
   @toolkit.TimeCalculator(isDebug) 
@@ -202,6 +202,7 @@ class Caliber(object):
 
 def main():
   worker = RetrieveEfficiency('./XBTagging/data/TPConfig.py')
+  worker.Work()
  
 if __name__ == '__main__':
   main()
