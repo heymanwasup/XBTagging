@@ -7,7 +7,28 @@ import sys
 import json
 import os
 import commands
+from copy import deepcopy
 
+
+class CopyParameters(object):
+  def __init__(self,types=[dict]):
+    self.types = types
+
+  def IsInTypes(self,obj):
+    for t in self.types:
+      if isinstance(obj,t):
+        return True
+    return False
+
+  def __call__(self,fun):
+    @functools.wraps(fun)
+    def wrap(*args,**kw): 
+      _args = ( deepcopy(arg) if self.IsInTypes(arg) else arg for arg in args)
+      _kw   = {k:deepcopy(kw[k]) if self.IsInTypes(kw[k]) else kw[k] for k in kw}
+      res = fun(*_args,**_kw)
+      return res
+    return wrap
+      
 #better, fexible 
 class TimeCalculator(object):
   def __init__(self,isOpen=True):
@@ -75,68 +96,6 @@ def DumpDictToJson(data,f=sys.stdout):
     json_str = json.dumps(data,indent=4,sort_keys=True)
     f.write(json_str)
 
-@TimeCalculator()  
-def hash_md5(filename,fun):
-  hashmd5 = hashlib.md5()
-  with open(filename,'rb') as f:
-    hashvalue = fun(f,hashmd5)
-  return hashvalue
-
-def get_md5_1(data,hasher,buff):
-  for chunk in iter(lambda :data.read(buff),b''):
-    hasher.update(chunk)
-  return hasher.hexdigest()
-
-def get_md5_2(data,hasher,buff):
-  chunk = data.read(buff)
-  while len(chunk)!=0:
-    hasher.update(chunk)
-    chunk = data.read(buff)
-  return hasher.hexdigest()
-
-def get_md5_3(data,hasher):
-  hasher.update(data.read())
-  return hasher.hexdigest()
-
-def get_md5_4(data,hasher,buff):
-  hasher.update(data.read(buff))
-  return hasher.hexdigest()
-
-def test_hashmd5():
-#  fname = 'Goodfellas.1990.720p.BrRip.264.YIFY.mp4'   
-  fname = 'WWW.YIFY-TORRENTS.COM.jpg'  
-  f = lambda g,x:functools.partial(g,buff=x)
-
-  '''
-  d11 = hash_md5(fname,f(get_md5_1,10000)) 
-  d12 = hash_md5(fname,f(get_md5_1,1000)) 
-
-  d21 = hash_md5(fname,f(get_md5_2,10000)) 
-  d22 = hash_md5(fname,f(get_md5_2,1000)) 
-
-  print d11
-  print d12
-  print d21
-  print d22
-  '''
-
-  d = []
-
-  d3 = hash_md5(fname,get_md5_3) 
-  d.append(d3)
-
-  buff = -1
-  da = hash_md5(fname,f(get_md5_4,buff))
-  d.append(da)
-
-  buff = int(1e7)
-  for n in range(0,3):
-    da = hash_md5(fname,f(get_md5_4,buff))
-    buff*=10
-    d.append(da)
-
-  for a in d:
-    print a
 
 def PartialFormat(fmt,keys): 
   reg_keys = '{([^{}:]+)[^{}]*}'
@@ -156,13 +115,9 @@ def PartialFormat(fmt,keys):
   keys_used = {key:keys[key] for key in keys}
   for k in invariant:
     keys_used[k] = kf_map[k]   
-#print keys_used 
   res = fmt.format(**keys_used)
   print res
   
-  
-  
-
 def InverseFormat(fmt,res):
   reg_keys = '{([^{}:]+)[^{}]*}'
   reg_fmts = '{[^{}:]+[^{}]*}'
@@ -183,7 +138,6 @@ def InverseFormat(fmt,res):
 
 def main():
   PartialFormat('{a:}af{f:}{c:}',{'a':1,'c':3})
-
   
 if __name__ == '__main__':
   main()

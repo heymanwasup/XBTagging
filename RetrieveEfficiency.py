@@ -97,16 +97,6 @@ class Caliber(object):
     with open(cfg_json,'w') as f:
       f.write(self.cfg_str)
 
-    
-    ''' 
-      foo = lambda x:'' if x==0 else x
-      n = 0
-      while os.path.isfile(toolkit.format(cfg_json,{'t':foo(n)})):
-        with open(toolkit.format(cfg_json,{'t':foo(n)}),'r') as f:
-          cfg_str = json.dumps(json.loads(f.read()),indent=4,sort_keys=True)
-    '''     
-    
-
   def LoadingCfg(self):
     self.gene_cfg = json.loads(self.cfg_str)
     toolkit.DumpDictToJson(self.gene_cfg) 
@@ -164,12 +154,31 @@ class Caliber(object):
     self.DumpResuls(dish,
         stat_error,scale_error,modelling_error,variation_error)
 
-  def  GetRaw(self):
-    raw_cache = '{0:}/{1:}___RAW_{2:}.json'.format(self.cache_dir,self.ctag,self.cat_str) 
-    if not os.path.isfile(raw_data_cache):
-      raw_data = {}
-      #for 
-      raw_data[self._format] = GetHists('var')
+  def GetRawMC(self,samples,fmt,name,scale={}):
+    raw_cache = '{0:}/{1:}____RAW_MC_{2:}_{3:}.json'.format(self.cache_dir,self.ctag,self.cat_str,name) 
+    if not os.path.isfile(raw_cache):
+      raw = {}
+      for sam,sam_val in self._samples.iteritems():
+        raw[sam] = self.GetRawEntries(fmt,samples,{'tp':['PxT','PxP','PjT','PjP','PbT','PbP']},scale) 
+    else:
+      with open(raw_cache,'r') as f:
+        raw = json.loads(f.read())
+
+  def GetRawData(self):
+    raw_cache = '{0:}/{1:}__RAW_DATA_{2:}.json'.format(self.cache_dir,self.ctag,self.cat_str)
+    if not os.path.isfile(raw_cache):
+      raw = {}
+      raw['data'] = self.GetRawEntries('nominal',{'data',self._samples['data']},{'tp':['PxT','PxP']},{})
+    else:
+      with open(raw_cache,'r') as f:
+        raw = json.loads(f.read())
+    return raw
+   
+  @toolkit.CopyParameters()
+  def GetRawEntries(self,fmt,samples,keys,scale):
+    raw = {}
+    for sample,entries in samples.iteritems():
+
 
   @staticmethod
   @toolkit.TimeCalculator(isDebug) 
@@ -197,8 +206,50 @@ class Caliber(object):
     for var in Vars: 
       if len(Vars[var])==1:
         Vars[var].append(Pnominal)
-
     return Vars
+
+class Hist(object):
+  def Init(self):
+    self.nbins = None
+    self.gurantee = False
+  
+  def __init__(self,th1=None,scale=1.,bincontent=None):
+    self.default = 0
+    self.init()
+    self.SetDefault()
+    if th1!=None:
+      self.bincontent = [ scale*th1.GetBinContent(n+1)) for n in range(self.nbins) ]
+      self.binerror   = [ scale*th1.GetBinError(n+1)) for n in range(self.nbins) ]
+    elif bincontent!=None:
+      self.SetDefault()
+      self.bincontent = list(bincontent)
+    if self.gurantee:
+      self.Gurantee()
+
+  def SetDefault(self):
+    self.bincontent = [self.default for n in range(self.nbins)]
+    self.binerror   = [self.default for n in range(self.nbins)]
+
+  def Gurantee(self):
+    self.bincontent = list(map(lambda x:x if x>0 else 0, self.bincontent))
+    self.bincontent[0],self.binerror[0] = 0,0
+
+  def __add__(self,other):
+    return Hist(bincontent=map(operator.add,self.bincontent,other.bincontent))
+  def __sub__(self,other):
+    return Hist(bincontent=map(operator.sub,self.bincontent,other.bincontent))
+  def __mul__(self,other):
+    if isinstance(other,Hist):
+      return Hist(bincontent=map(operator.mul,self.bincontent,other.bincontent))
+    else:
+      return Hist(bincontent=map(lambda x:x*other,self.bincontent))
+  def __div__(self,other):
+    if isinstance(other,Hist):
+      return Hist(bincontent=map(div,self.bincontent,other.bincontent))
+    else:
+      return Hist(bincontent=map(lambda x:x/other,self.bincontent))
+  def __pow__(self,n):
+    return Hist(bincontent=map(lambda x:x**n,self.bincontent))
 
 def main():
   worker = RetrieveEfficiency('./XBTagging/data/TPConfig.py')
@@ -206,3 +257,5 @@ def main():
  
 if __name__ == '__main__':
   main()
+
+

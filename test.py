@@ -1,4 +1,4 @@
-
+from copy import deepcopy
 import re
 import importlib
 
@@ -6,12 +6,113 @@ import libs.cfg as Cfg
 import imp,json
 import hashlib
 import toolkit
+
+class Template(object):
+  a = 'a'
+  def __init__(self):
+    self.b = 'b'
+  def foo(self):
+    print Template.a
+    print self.b
+  def test(self):
+    print a
+
+def __init__(self):
+  self.b = 'B'
+  self.c = 'C'
+  
+class H(object):
+  a = 1
+  b = 2
+  def __init__(self):
+    print H.a
+    print H.b
+
+def main():
+  MyCls = type('F',(H,),{})
+  MyCls()
+
+  MyCls2 = type('F',(H,),{})
+  MyCls2.a = 100
+  MyCls2()
+  
+
+
+def TestMetaCls_1():
+  MyCls = type('MyCls',(Template,),{'__init__':__init__,'a':'A'})
+  a = MyCls()
+  a.foo()
+  
+  b = Template()
+  b.foo()
+
+  A = Template
+  A.a = 10
+  print Template.a
+  
+  c = Template()
+  c.test()
+  
+def TestStaticMember():
+  A.x = 10
+  print A.x#10
+  a = A()
+  print a.x#10
+  a.x = 100
+  print A.x#10
+  A.x=100
+  print a.x#100
+  b = A()
+  print b.x#100
+  
+
 class A(object):
+
+
   @staticmethod
   def foo():
     print 'hello'
+  
 
-def main():
+  def goo(self,data):
+    data[10] = 20
+    print data
+
+  @toolkit.CopyParameters()
+  def hoo(self,data):
+    data[10] = 20
+    print data
+
+def _testCP(a,b,c):
+  b[10] = 100
+  print a
+  print b
+  print c
+
+def testCP(fun):
+  a = 10
+  b = {}
+  c = 'hello'
+  fun(a,b,c)
+  print a
+  print b
+  print c
+  
+
+def TestCopyParametes():
+  testCP(_testCP)
+  testCP(toolkit.CopyParameters()(_testCP))
+  a = {}
+  b = {}
+  A().goo(a)
+  A().hoo(b)
+  print 
+  print a
+  print b
+
+  
+
+def TestStaticMethod():
   A.foo()
 
 def WriteVSPrint():
