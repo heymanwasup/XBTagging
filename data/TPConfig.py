@@ -1,0 +1,37 @@
+class Settings(object):
+  def __init__(self):
+    self.runtag = 'test'
+    self.input  = './input/test.root'
+    self.output = './output/'
+
+    self.nToys      = 10000
+    self.binnings   = 'CalNew'
+    self.nominal    = False
+    self.histformat = 'r21a1'
+
+    self.cats     = 'ptCalib'
+    self.cats_add = {
+      'wp'  : [60,70,77,85],
+      'mva' : [80],
+    } 
+
+    self.samples = {
+      'tt'      : 'py8',
+      'stop'    : 'PowPy6',
+      'diboson' : 'PowPy8',
+      'zjets'   : 'sherpa221',
+      'fake'    : 'nominal',
+    } 
+
+    self.modellings = {
+      'tt'      : 'py8',
+      'stop'    : 'stop_v1',
+      'zjets'   : 'zjets_v1',
+    }
+    self.scales = [
+      'WtScale',
+      'dibosonScale',
+      'zjetsScale',
+      'fakeScale',
+      'lumiScale',
+    ]
