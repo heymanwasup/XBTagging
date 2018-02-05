@@ -19,7 +19,7 @@ class TimeCalculator(object):
       result = fun(*args,**kw)
       end = time.time()
       if self.isOpen:
-        print '{0:.3f}s used!'.format(end-start)
+        print '\n{0:18s} {1:8.1f}s used!'.format(fun.__name__,end-start)
       return result
     return wrap
 

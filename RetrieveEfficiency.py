@@ -127,6 +127,7 @@ class Caliber(object):
       status = False
     else:
       self.cat = self.cat_itms[Niter]
+      self.cat_str = '_'.join(map(str,self.cat))
       Niter += 1
       status = True
     return status
@@ -136,24 +137,40 @@ class Caliber(object):
     #self.Initialize()
 
     while self.Next():
-      self.PerformTagAndProbe()
+      print self.cat
+      print self.cat_str
+      #self.PerformTagAndProbe()
 
   def PerformTagAndProbe(self):
-    raw  = self.Retrieve_raw()
-    dish = self.Cook(raw) 
 
-    raw_var   = self.Retrieve_raw_var()
-    dish_var  = self.CookVar(raw_var) 
-    error_var = self.ErrorVar(dish_var)
-      
-    statError  = self.StatError(raw)
-    scaleError = self.ScaleError(raw) 
-    modelError = self.ModelError(raw)
+    raw = self.GetRaw()
+    raw_modellings = self.GetRawModellings()
+    raw_scales = self.GetRawScales()
+    
+    dish = self.Cook(raw)
+    dish_modellings = self.CookModellings(raw,raw_modellings)
+    dish_scales = self.DifferCook(raw_scales)
+    
+    stat_error = self.StatError(raw)
+    scale_error = self.ScaleError(dish_scales)
+    modelling_error = self.DifferError(dish_modellings)
+
+    variation_error = {}
+    if not self._nominal:
+      raw_variations = self.GetRawVariations()
+      dish_variations = self.CookVariations(raw_variations)
+      variation_error = self.DifferError(dish_variations)
 
     self.DumpResuls(dish,
-        error_var,errorStat,errorScale,errorModel)
+        stat_error,scale_error,modelling_error,variation_error)
 
-  #def  Retrieve_raw(self):
+  def  GetRaw(self):
+    raw_cache = '{0:}/{1:}___RAW_{2:}.json'.format(self.cache_dir,self.ctag,self.cat_str) 
+    if not os.path.isfile(raw_data_cache):
+      raw_data = {}
+      for 
+      raw_data[self._format[]] = GetHists('var')
+
   @staticmethod
   @toolkit.TimeCalculator(isDebug) 
   def GetVarsList(rfile,Pnominal,Pvars):
@@ -182,11 +199,6 @@ class Caliber(object):
         Vars[var].append(Pnominal)
 
     return Vars
-
-
-
-
-
 
 def main():
   worker = RetrieveEfficiency('./XBTagging/data/TPConfig.py')
