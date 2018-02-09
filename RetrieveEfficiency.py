@@ -154,6 +154,10 @@ class Caliber(object):
     self.DumpResuls(dish,
         stat_error,scale_error,modelling_error,variation_error)
 
+  def GetRaw(self):
+    raw = self.GetRawMC(samples,name)
+    raw.update(self.GetRawData(samples,name))
+
   def GetRawMC(self,samples,fmt,name,scale={}):
     raw_cache = '{0:}/{1:}____RAW_MC_{2:}_{3:}.json'.format(self.cache_dir,self.ctag,self.cat_str,name) 
     if not os.path.isfile(raw_cache):
@@ -208,48 +212,14 @@ class Caliber(object):
         Vars[var].append(Pnominal)
     return Vars
 
-class Hist(object):
-  def Init(self):
-    self.nbins = None
-    self.gurantee = False
-  
-  def __init__(self,th1=None,scale=1.,bincontent=None):
-    self.default = 0
-    self.init()
-    self.SetDefault()
-    if th1!=None:
-      self.bincontent = [ scale*th1.GetBinContent(n+1)) for n in range(self.nbins) ]
-      self.binerror   = [ scale*th1.GetBinError(n+1)) for n in range(self.nbins) ]
-    elif bincontent!=None:
-      self.SetDefault()
-      self.bincontent = list(bincontent)
-    if self.gurantee:
-      self.Gurantee()
+def GetHistForRaw():
+  # Return a class with gurantees:
+  #   1. a first bin content,err = 0,0
+  #   
 
-  def SetDefault(self):
-    self.bincontent = [self.default for n in range(self.nbins)]
-    self.binerror   = [self.default for n in range(self.nbins)]
 
-  def Gurantee(self):
-    self.bincontent = list(map(lambda x:x if x>0 else 0, self.bincontent))
-    self.bincontent[0],self.binerror[0] = 0,0
 
-  def __add__(self,other):
-    return Hist(bincontent=map(operator.add,self.bincontent,other.bincontent))
-  def __sub__(self,other):
-    return Hist(bincontent=map(operator.sub,self.bincontent,other.bincontent))
-  def __mul__(self,other):
-    if isinstance(other,Hist):
-      return Hist(bincontent=map(operator.mul,self.bincontent,other.bincontent))
-    else:
-      return Hist(bincontent=map(lambda x:x*other,self.bincontent))
-  def __div__(self,other):
-    if isinstance(other,Hist):
-      return Hist(bincontent=map(div,self.bincontent,other.bincontent))
-    else:
-      return Hist(bincontent=map(lambda x:x/other,self.bincontent))
-  def __pow__(self,n):
-    return Hist(bincontent=map(lambda x:x**n,self.bincontent))
+
 
 def main():
   worker = RetrieveEfficiency('./XBTagging/data/TPConfig.py')

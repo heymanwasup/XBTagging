@@ -6,14 +6,93 @@ import libs.cfg as Cfg
 import imp,json
 import hashlib
 import toolkit
+import numpy as np
+
+def main():
+  class A(object):
+    a = 1
+    def __init__(self):
+      print self.__class__.a
+  A()
+
+
+
+
+
+def TestCopyFoo():
+
+  class A(object):
+    a = 1
+    def __init__(self):
+      self.b = 10
+    def foo(self):
+      print type(self).a
+      print self.b
+
+  A_dummy = type('A_dummy',(object,),{})
+#  A_attrs = {attr:getattr(A,attr) for attr in vars(A).copy()}
+  attrs = vars(A)#.copy()
+  print attrs.copy()
+  print attrs
+
+
+  test = True
+  if test:
+    B = type('B',(object,),dict(attrs))
+    B.a = 2
+
+    b = B()
+    b.foo()
+    
+    a = A()
+    a.foo()
+
+'''
+  B = type('B',(object,),A_attrs)
+  b = B()
+  b.foo()
+'''
+  
+def TestCopyClass_1():
+  class A(object):
+    a = 1
+    def __init__(self):
+      self.b = 10
+    def foo(self):
+      print type(self).a
+      print self.b
+
+  A_dummy = type('A_dummy',(object,),{})
+  A_attrs = {attr:getattr(A,attr)  for attr in dir(A) if (not attr in dir(A_dummy))}
+
+  B = type('B',(object,),A_attrs)
+  B.a = 2
+  
+  a = A()
+  a.foo()
+
+  b = B()
+  b.foo()
+  
+  
+
+class CLS(object):
+  a = 1.
+  def __init__(self):
+    self.b = 2
+  def foo(self):
+    print type(self).a
+    print self.b
 
 class Template(object):
   a = 'a'
   def __init__(self):
     self.b = 'b'
+
   def foo(self):
     print Template.a
     print self.b
+
   def test(self):
     print a
 
@@ -28,15 +107,31 @@ class H(object):
     print H.a
     print H.b
 
-def main():
-  MyCls = type('F',(H,),{})
+def TestMetaCls():
+  def Init(self):
+    self.b = 'b'
+
+  def Foo(self):
+    print type(self).a
+    print self.b
+
+  MyCls = type('MyCls',(object,),{'a':'a','__init__':Init,'foo':Foo})
+  myObj = MyCls()
+  myObj.foo()
+
+def TestMeta2():
+  MyCls = type('F',(object,),{'a':1,'b':2})
+
   MyCls()
 
   MyCls2 = type('F',(H,),{})
   MyCls2.a = 100
   MyCls2()
-  
 
+  data = dir(Template)
+  for d in data:
+    print d
+    print type(d).__name__
 
 def TestMetaCls_1():
   MyCls = type('MyCls',(Template,),{'__init__':__init__,'a':'A'})
