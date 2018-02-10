@@ -9,11 +9,16 @@ import toolkit
 import numpy as np
 
 def main():
-  class A(object):
+  class B(object):
+    pass
+  class A(B):
     a = 1
     def __init__(self):
       print self.__class__.a
-  A()
+  a = A()
+#  print super(A,a)
+
+  print vars(A)
 
 
 

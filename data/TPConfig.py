@@ -3,6 +3,7 @@ class Settings(object):
     self.rtag = 'test'
     self.input  = './input/test.root'
     self.output = './output/'
+    self.jet    = 'CalJet'
 
     self.nToys      = 10000
     self.binnings   = 'CalNew'
@@ -22,6 +23,9 @@ class Settings(object):
       'zjets'   : 'sherpa221',
       'fake'    : 'nominal',
     } 
+    
+    self.data = 'data'
+  
 
     self.modellings = {
       'tt'      : 'py8',

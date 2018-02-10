@@ -10,44 +10,61 @@ import commands
 import numpy as np
 from copy import deepcopy
 
-
 class TemplateHist(object):
+  __doc__ = '__MetaHistogram__'
+
   nbins = None
   default_var = 0
   default_err = 0
-  gurantee = False  
+  do_gurantee = False  
   do_assert = False
+  do_warnings = False
+  always_report = False
+  
+  def IsSame(self,other):
+    if self.__doc__ == other.__doc__:
+      res = True
+    else:
+      res = False
+    return res
 
   def __init__(self,th1=None,vals=None,errs=None):
     self.SetDefault()
     if th1!=None:
-      self.vals = [ th1.GetBinContent(n+1)) for n in range(self.nbins) ]
-      self.errs = [ th1.GetBinError(n+1))   for n in range(self.nbins) ]
+      self.vals = [ th1.GetBinContent(n+1) for n in range(self.nbins) ]
+      self.errs = [ th1.GetBinError(n+1)   for n in range(self.nbins) ]
     elif vals!=None:
       self.vals = list(vals)
       if errs!=None:
         self.errs = list(errs)
-    if type(self).gurantee:
+    
+    if type(self).always_report:
+      self.Report()
+  
+  def Report(self):   
+    if type(self).do_warnings:
+      warnings = self.Warnings()
+    if type(self).do_gurantee:
       self.Gurantee()
-    if do_assert:
+    if type(self).do_assert:
       self.Assert()
+    return warnings
 
   def SetDefault(self):
-    self.vals   = [type(self).default_val for n in range(type(self).nbins]
+    self.vals   = [type(self).default_val for n in range(type(self).nbins)]
     self.errs   = [type(self).default_err for n in range(type(self).nbins)]
 
   def Assert(self):
     pass
-    for n,val in enumerate(self.vals):
-      assert((math.isnan(val) and (n!=0)),'NaN not permitted in non-1st bin: {0:}'.format(self.vals.__str__()))
 
   def Gurantee(self):
     pass
-    self.vals[0],self.errs[0] = 0,0
-    self.vals = list(map(lambda x:x if x>0 else 0, self.vals))
+
+  def Warnings(self):
+    pass
 
   def Add(self,other):
-    if not isinstance(other,type(self)):
+    if not self.IsSame(other):
       _other = type(self)(th1=other)
     else:
       _other = other
@@ -55,7 +72,7 @@ class TemplateHist(object):
     self.errs = list(map(lambda x,y:math.sqrt(x**2+y**2)),self.errs,_other.errs)
 
   def Operation(self,other,operator_val):
-    _other_vals = other.vals if isinstance(other,type(self)) else other
+    _other_vals = other.vals if self.IsSame(other) else other
     return type(self)(vals=map(operator_val,self.vals,_other_vals))
   
   def __add__(self,other):
@@ -109,9 +126,9 @@ class TimeCalculator(object):
 def Decomposer(obj):
     return {attr:getattr(obj,attr) for attr in dir(obj) if not callable(getattr(obj,attr)) and not attr.startswith('__')}
 
-def FooCopyClass(name,cls,new_attrs={}):
+def FooCopyClass(name,cls,inherits=(object,),new_attrs={}):
   attrs = vars(cls).copy()
-  return type(name,(object,),attrs.update(new_attrs))
+  return type(name,inherits,attrs.update(new_attrs))
 
    
     
