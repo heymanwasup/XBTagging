@@ -10,11 +10,35 @@ import commands
 import numpy as np
 from copy import deepcopy
 
+def json_load(file_handle):
+    return _byteify(
+        json.load(file_handle, object_hook=_byteify),
+        ignore_dicts=True
+    )
+
+def json_loads(json_text):
+    return _byteify(
+        json.loads(json_text, object_hook=_byteify),
+        ignore_dicts=True
+    )
+
+def _byteify(data, ignore_dicts = False):
+    if isinstance(data, unicode):
+        return data.encode('utf-8')
+    if isinstance(data, list):
+        return [ _byteify(item, ignore_dicts=True) for item in data ]
+    if isinstance(data, dict) and not ignore_dicts:
+        return {
+            _byteify(key, ignore_dicts=True): _byteify(value, ignore_dicts=True)
+            for key, value in data.iteritems()
+        }
+    return data
+
 class TemplateHist(object):
   __doc__ = '__MetaHistogram__'
 
   nbins = None
-  default_var = 0
+  default_val = 0
   default_err = 0
   do_gurantee = False  
   do_assert = False
@@ -128,7 +152,9 @@ def Decomposer(obj):
 
 def FooCopyClass(name,cls,inherits=(object,),new_attrs={}):
   attrs = vars(cls).copy()
-  return type(name,inherits,attrs.update(new_attrs))
+  attrs.update(new_attrs)
+  
+  return type(name,inherits,attrs)
 
    
     

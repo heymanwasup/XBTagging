@@ -24,7 +24,7 @@ class Settings(object):
       'fake'    : 'nominal',
     } 
     
-    self.data = 'data'
+    self.data = ['data']
   
 
     self.modellings = {

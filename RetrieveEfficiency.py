@@ -41,7 +41,7 @@ class RetrieveEfficiency(object):
     scales   = {name:cm['scales'][name] for name in sp['scales']}
     fmt      = cm['format'][sp['format']]
     cats   = cm['cats'][sp['cats']]
-    binnings = cm['binnings'][sp['binnings']]
+    binnings = array.array('d',cm['binnings'][sp['binnings']])
     cats.update(sp.pop('cats_add',{}))
 
     config = {
@@ -67,7 +67,7 @@ class Caliber(object):
     self.wk_dir   = wk_dir
     
     self.LoadingCfg()
-#self.Initialize()
+    self.Initialize()
 
   def Initialize(self):
     self.file      = R.TFile(self._input)
@@ -92,7 +92,7 @@ class Caliber(object):
         with open(vars_json,'w') as f:
           toolkit.DumpDictToJson(data,f)
       with open(vars_json,'r') as f:
-        self.varsList = json.loads(f.read())
+        self.varsList = toolkit.json_loads(f.read())
 
     cfg_json = '%s/config_%s.json'%(self.out_dir,self._rtag)
     with open(cfg_json,'w') as f:
@@ -101,7 +101,7 @@ class Caliber(object):
     self.Hist = GetHistClass('Hist',len(self._binnings)-1)
 
   def LoadingCfg(self):
-    self.gene_cfg = json.loads(self.cfg_str)
+    self.gene_cfg = toolkit.json_loads(self.cfg_str)
     toolkit.DumpDictToJson(self.gene_cfg) 
 
     for key,value in self.gene_cfg.iteritems():
@@ -133,7 +133,7 @@ class Caliber(object):
     while self.Next():
       print self.cat_itm
       print self.cat_str
-      #self.PerformTagAndProbe()
+      self.PerformTagAndProbe()
 
   def PerformTagAndProbe(self):
 
@@ -159,7 +159,7 @@ class Caliber(object):
     var  = self._format['nominal']['var']
     samples = self._samples_register
 
-    data = self.GetRawData(fmt,var)
+    data = self.GetRawData()
     mc   = self.GetRawMC(fmt,var,samples)
     
     data.update(mc)
@@ -191,21 +191,27 @@ class Caliber(object):
     for tp in ['PxT','PxP']:
       _keys = copy.deepcopy(keys)
       _keys.update({'tp':tp})
-      raw['data'][tp] = self.GetRawEntries(fmt,keys,self._data,scale)
+      raw['data'][tp] = self.GetRawEntries(hfmt,_keys,self._data,scale)
     return raw
       
    
   @toolkit.CopyParameters()
   def GetRawEntries(self,fmt,keys,samples,scale={}):
     keys.update(self.cat_itm)
-    assert set(keys.keys())==set(self.cat_keys)
     hist = self.Hist()
-    for sam in samples:
-      _keys = copy.deepcopy(keys)
-      _keys['sam'] = sam
-      hsf = self.GetHistSF(_keys,scale)
-      hname = fmt.format(**_keys)
-      print hname
+    for sample in samples:
+      keys['sample'] = sample
+      hsf = self.GetHistSF(keys,scale)
+      hname = fmt.format(**keys)
+      th1 = self.file.Get(hname)
+      if not th1:
+        continue
+      else:
+        if self._rebinning:
+          th1 = th1.Rebin(len(self._binnings)-1,'',self._binnings)
+        hist_temp = self.Hist(th1)
+        hist_temp.Scale(hsf)
+        hist.Add(hist_temp)
       raise ValueError()
       
     
