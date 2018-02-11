@@ -65,24 +65,34 @@ class Caliber(object):
   def __init__(self,cfg,wk_dir='./'):
     self.cfg_str  = json.dumps(cfg,indent=4,sort_keys=True)
     self.wk_dir   = wk_dir
-    
     self.LoadingCfg()
     self.Initialize()
 
+
   def Initialize(self):
     self.file      = R.TFile(self._input)
+    self.Hist = GetHistClass('Hist',len(self._binnings)-1)
+
+    self.init_environment()
+    self.init_varList()
+    self.init_scales()
+    self.init_samples()
+    self.init_wrapFoos()
+  
+  def init_environment(self):
     self.ftag      = toolkit.GetHashFast(self._input)
-    
     hasher = hashlib.md5()
     hasher.update(self.cfg_str)
     self.ctag = hasher.hexdigest()[::2] 
-    
-    self.cache_dir = '%s/cache/%s/'%(self.wk_dir,self.ftag)  
+    self.cache_dir = '%s/cache/%s/'%(self.wk_dir,self.ftag,self._rtag)  
     self.out_dir   = os.path.join(self.wk_dir, self._output,self._rtag)
-
-    toolkit.mkdir(self.out_dir)
     toolkit.mkdir(self.cache_dir)
+    toolkit.mkdir(self.out_dir)
+    cfg_json = '%s/config_%s.json'%(self.out_dir,self._rtag)
+    with open(cfg_json,'w') as f:
+      f.write(self.cfg_str)
 
+  def init_varList(self):
     if not self._nominal:
       vars_json = '%s/variations.json'%(self.cache_dir)
       if not os.path.isfile(vars_json):
@@ -94,11 +104,23 @@ class Caliber(object):
       with open(vars_json,'r') as f:
         self.varsList = toolkit.json_loads(f.read())
 
-    cfg_json = '%s/config_%s.json'%(self.out_dir,self._rtag)
-    with open(cfg_json,'w') as f:
-      f.write(self.cfg_str)
+  def init_scales(self):
+    for name,scale in self._scales.iteritems():
+      if 'samples' in scale:
+        scale['samples'] = re.compile(scale['samples'])
+      if 'keys' in scale:
+        for key,regexp in scale['keys'].iteritems():
+          scale['keys'][key] = re.compile(regexp)
 
-    self.Hist = GetHistClass('Hist',len(self._binnings)-1)
+  def init_samples(self):
+    self.nominal_samples = { sam:{name:self._samples_register[sam][name]} \
+      for sam,name in self._nominals.iteritems() }
+
+  def init_wrapFoos(self):
+    f = lambda foo,cache:setattr(self,foo,self.LoadFromCache(getattr(self,foo),cache)) 
+    f('GetRawNominals')  
+    f('GetRawScales')
+    f('GetRawVariations')
 
   def LoadingCfg(self):
     self.gene_cfg = toolkit.json_loads(self.cfg_str)
@@ -127,8 +149,8 @@ class Caliber(object):
     return status
 
   def Run(self):
-    #self.LoadingCfg()
-    #self.Initialize()
+#self.LoadingCfg()
+#self.Initialize()
 
     while self.Next():
       print self.cat_itm
@@ -137,14 +159,21 @@ class Caliber(object):
 
   def PerformTagAndProbe(self):
 
-    raw_nominal = self.GetRawNominal()
+    raw_nominal = self.GetRawNominals()
     raw_scales = self.GetRawScales()
     raw_variations = self.GetRawVariations()
+
+    str_nominal = json.dumps(raw_nominal,indent=4,sort_keys=True)
+    str_scales = json.dumps(raw_scales,indent=4,sort_keys=True)
+    str_variations = json.dumps(raw_variations,indent=4,sort_keys=True)
+
+    with open('{0:}/raw_nominal')
+
 
     dish_nominal = self.CookNominal(raw_nominal)  
     dish_modellings = self.CookModellings(raw_nominal)
     dish_scales = self.CookScales(raw_scales)
-    dish_variations = self.CookVariations(raw_variations)
+    dish_variations = self.CookVariations(raw_variations,raw_nominal['data'])
       
     err_stat = self.ErrorNominal(raw_nominal)  
     err_modellings = self.ErrorModellings(raw_nominal)
@@ -154,18 +183,45 @@ class Caliber(object):
     self.DumpResuls(dish_nominal,
         err_stat,err_modellings,err_scales,err_variations)
 
-  def GetRawNominal(self):
+  def GetRawNominals(self):
+    samples = self._samples_register
+    scale   = {}
+    raw = self.GetRawDataMC(samples,scale)
+    return raw
+
+  def GetRawDataMC(self,samples,scale):
     fmt  = self._format['nominal']['hist']
     var  = self._format['nominal']['var']
-    samples = self._samples_register
-
-    data = self.GetRawData()
-    mc   = self.GetRawMC(fmt,var,samples)
-    
+    data = self.GetRawData(scale)
+    mc   = self.GetRawMC(fmt,var,samples,scale)
     data.update(mc)
     return data
 
-  def GetRawMC(self,fmt,var,samples,scale):
+  def GetRawScales(self):
+    samples = self.nominal_samples
+    res = {}
+    for name,scale in self._scales.iteritems():
+      scale['status'] = 0
+      down = GetRawDataMC(samples,scale)
+      scale['status'] = 1
+      up = GetRawDataMC(samples,scale)
+      res[name] = [down,up]
+    return res
+
+  def GetRawVariations(self):
+    if self._nominal:
+      return {}
+    fmt  = self._format['variation']['hist']
+    samples = self.nominal_samples
+    res = {}
+    for variation,up_down in self.varsList.iteritems():
+      down = self.GetRawMC(fmt,up_down[0],samples)
+      up   = self.GetRawMC(fmt,up_down[1],samples)
+      res[variation] = [down,up]
+    return res
+
+  @toolkit.CopyParameters()
+  def GetRawMC(self,fmt,var,samples,scale={}):
     keys = {
       'var' : var,
       'jet' : self._jet,
@@ -173,14 +229,18 @@ class Caliber(object):
     raw = {}
     for sample, entries in samples.iteritems():
       raw[sample] = {}
+      scale['sample'] = sample
       for name, items in entries.iteritems():
         raw[sample][name] = {}
         for key in ['PxT','PxP','PjT','PjP','PbT','PbP']:
           _keys = copy.deepycopy(keys)
           _keys['tp'] = key
           raw[sample][name][key] = self.GetRawEntries(fmt,_keys,items,scale)
-          
+
+  @toolkit.CopyParameters()       
   def GetRawData(self,scale={}):
+    
+    scale['sample'] = 'data' 
     fmt = self._format['nominal']
     hfmt = fmt['hist']
     keys = {
@@ -189,19 +249,18 @@ class Caliber(object):
     }
     raw = {'data':{}}
     for tp in ['PxT','PxP']:
-      _keys = copy.deepcopy(keys)
-      _keys.update({'tp':tp})
+      keys['tp'] = tp
       raw['data'][tp] = self.GetRawEntries(hfmt,_keys,self._data,scale)
     return raw
       
    
   @toolkit.CopyParameters()
-  def GetRawEntries(self,fmt,keys,samples,scale={}):
+  def GetRawEntries(self,fmt,keys,samples,scale):
     keys.update(self.cat_itm)
     hist = self.Hist()
     for sample in samples:
       keys['sample'] = sample
-      hsf = self.GetHistSF(keys,scale)
+      hsf = self.GetHistSF(scale,keys)
       hname = fmt.format(**keys)
       th1 = self.file.Get(hname)
       if not th1:
@@ -212,12 +271,36 @@ class Caliber(object):
         hist_temp = self.Hist(th1)
         hist_temp.Scale(hsf)
         hist.Add(hist_temp)
-      raise ValueError()
+    hist.Report()    
+    return hist
       
     
+  @staticmethod
+  def GetHistSF(scale,keys):
+    sample = scale['sample'] 
+    if len(scale.keys())<2:
+      return 1.
+    if not scale['samples'].match(sample):
+      return 1.
+    if 'keys' in scale:
+      for key,reg in scale['keys']:
+        if not reg.match(keys[key]):
+          return 1.
+    return scale['scale'][scale['up_down']]      
     
-    
-    
+  def LoadFromCache(self,name):
+    json_name = '%s/%s___%s.json'%(self.cache_dir,self.ctag,name)
+    def Wraper(fun): 
+      @functools.wraps(fun)
+      def newFun(*args,**kw):
+        if os.path.isfile(json_name):
+          with open(json_name,'r') as f:
+            res = toolkit.json_loads(f.read())
+        else:
+          res = fun(*args,**kw)
+        return res
+      return newFun
+    return Wraper
 
   @staticmethod
   @toolkit.TimeCalculator(isDebug) 

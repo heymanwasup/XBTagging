@@ -5,9 +5,11 @@ class Settings(object):
     self.output = './output/'
     self.jet    = 'CalJet'
 
+
     self.nToys      = 10000
     self.binnings   = 'CalNew'
     self.nominal    = False
+    self.rebinning  = False
     self.format = 'r21a1'
 
     self.cats     = 'ptCalib'

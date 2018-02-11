@@ -253,3 +253,27 @@ if __name__ == '__main__':
   main()
 
   
+def GetVarsList(rfile,Pnominal,Pvars):
+  Rvars      = re.compile(Pvars)
+  Rnominal  = re.compile(Pnominal)
+
+  Vars = {}
+  for key in rfile.GetListOfKeys():
+    obj      = key.ReadObj()
+    obj_name = obj.GetName()
+    cls_name = obj.ClassName()
+
+    if Rnominal.match(obj_name) \
+      or (cls_name.find('TDirectory')==-1) \
+      or (obj_name.find('SysLUMI')!=-1):
+      continue
+
+    var = Rvars.split(obj_name)[0]
+    if var in Vars:
+      Vars[var].append(obj_name)
+    else:
+      Vars[var] = [obj_name]
+  for var in Vars: 
+    if len(Vars[var])==1:
+      Vars[var].append(Pnominal)
+  return Vars

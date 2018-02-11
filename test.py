@@ -6,21 +6,32 @@ import libs.cfg as Cfg
 import imp,json
 import hashlib
 import toolkit
+import functools
 import numpy as np
 
+class A(object):
+  def __init__(self):
+    self.a = 1
+
+  def TestWraper(self,name):
+    def wrap(fun):
+      @functools.wraps(fun)
+      def foo(*args,**kw):
+        print name
+        print self.a*10000
+        fun(*args,**kw)
+      return foo
+    return wrap
+
+  @A.TestWraper('haha')
+  def foo(self):
+    print self.a
+
 def main():
-  class B(object):
-    pass
-  class A(B):
-    a = 1
-    def __init__(self):
-      print self.__class__.a
+      
+
   a = A()
-#  print super(A,a)
-
-  print vars(A)
-
-
+  a.foo()
 
 
 
