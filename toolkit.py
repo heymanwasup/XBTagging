@@ -1,4 +1,5 @@
 import hashlib
+import math
 import functools
 import time
 import pickle
@@ -7,8 +8,25 @@ import sys
 import json
 import os
 import commands
+import operator
 import numpy as np
 from copy import deepcopy
+
+def SmartMap(stop,alg,data):
+  def smartMap(stop,alg,data):
+    if isinstance(data,list):
+      iters = lambda dt : range(len(data))
+    elif isinstance(data,dict):
+      iters = lambda dt : dt.keys()
+    else:  
+      raise ValueError('only "dict", "list" data structure supported')
+
+    for itm in iters(data):
+      if stop(data[itm]):
+        data[itm] = alg(data[itm])
+      else:
+        smartMap(stop,alg,data[itm])
+  smartMap(stop,alg,data)
 
 def json_load(file_handle):
     return _byteify(
@@ -93,11 +111,18 @@ class TemplateHist(object):
     else:
       _other = other
     self.vals = list(map(operator.add,self.vals,_other.vals))
-    self.errs = list(map(lambda x,y:math.sqrt(x**2+y**2)),self.errs,_other.errs)
+    self.errs = list(map(lambda x,y:math.sqrt(x**2+y**2),self.errs,_other.errs))
 
+  def Scale(self,sf=1.):
+    self.vals = list(map(lambda x:x*sf,self.vals))
   def Operation(self,other,operator_val):
     _other_vals = other.vals if self.IsSame(other) else other
     return type(self)(vals=map(operator_val,self.vals,_other_vals))
+ 
+  def __str__(self):
+    return zip(self.vals,self.errs).__str__()
+  def __repr__(self):
+    return self.__str__()
   
   def __add__(self,other):
     return self.Operation(other,operator.add)
@@ -125,7 +150,7 @@ class CopyParameters(object):
   def __call__(self,fun):
     @functools.wraps(fun)
     def wrap(*args,**kw): 
-      _args = ( deepcopy(arg) if self.IsInTypes(arg) else arg for arg in args)
+      _args = tuple(deepcopy(arg) if self.IsInTypes(arg) else arg for arg in args)
       _kw   = {k:deepcopy(kw[k]) if self.IsInTypes(kw[k]) else kw[k] for k in kw}
       res = fun(*_args,**_kw)
       return res
@@ -197,12 +222,14 @@ def GetHashFast(fname):
   return GetHash(fname,size=int(1e7))
 
 def mkdir(path):
-	if not os.path.isdir(path):
-		res = commands.getstatusoutput('mkdir -p %s'%(path)) 
-		if not res[0]:
-			raise IOError(res[1])#'{0:}'.format(res[1]))
+  if not os.path.isdir(path):
+    res = commands.getstatusoutput('mkdir -p %s'%(path)) 
+    print res
+    if not res[0]:
+      print res[1]
+      raise IOError(res[1])
 
-def DumpDictToJson(data,f=sys.stdout):
+def DumpToJson(data,f=sys.stdout):
     json_str = json.dumps(data,indent=4,sort_keys=True)
     f.write(json_str)
 

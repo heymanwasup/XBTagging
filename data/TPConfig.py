@@ -26,13 +26,13 @@ class Settings(object):
       'fake'    : 'nominal',
     } 
     
-    self.data = ['data']
+    self.data = 'nominal'
   
 
     self.modellings = {
-      'tt'      : 'py8',
-      'stop'    : 'stop_v1',
-      'zjets'   : 'zjets_v1',
+      #'tt'      : 'py8',
+      #'stop'    : 'stop_v1',
+      #'zjets'   : 'zjets_v1',
     }
     self.scales = [
       'WtScale',

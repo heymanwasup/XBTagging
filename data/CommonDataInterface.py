@@ -11,29 +11,29 @@ class DataConfig(object):
     self.scales = {}
     self.scales['ntBCal'] = {
       'samples' : '(?!tt)',
-      'keys'    : {'tp':'PbP','jet':'Cal*'},
+      'keys'    : {'tp':'PbP','jet':'Cal.*'},
       'scale'   : [0.84,1.2], 
     }
 
     self.scales['ntBTrk'] = {
       'samples' : '(?!tt)',
-      'keys'    : {'tp':'PbP','jet':'Trk*'},
+      'keys'    : {'tp':'PbP','jet':'Trk.*'},
       'scale'   : [0.84,1.2], 
     }
 
     self.scales['mistagTrk'] = {
-      'keys'    : {'tp':'PjP','jet':'Trk*'},
+      'keys'    : {'tp':'PjP','jet':'Trk.*'},
       'scale'   : [0,2.5], 
     }
 
     self.scales['mistagCal'] = {
-      'keys'    : {'tp':'PjP','jet':'Cal*'},
+      'keys'    : {'tp':'PjP','jet':'Cal.*'},
       'scale'   : [0,2.3], 
     }
 
     self.scales['WtScale'] = {
       'samples' : 'stop',
-      'keys'    : {'sample':'*Wt*'},
+      'keys'    : {'sample':'.*Wt.*'},
       'scale'   : [0.5,1.5],
     }
 
@@ -53,7 +53,7 @@ class DataConfig(object):
     }
 
     self.scales['lumiScale'] = {
-      'samples' : '*',
+      'samples' : '.*',
       'scale'   : [1.032,9.968],
     }
   
@@ -69,11 +69,11 @@ class DataConfig(object):
   def HistFormats(self):
     self.format = {}
     r21a1_nominal = {
-      'hist' : '{var:}/{sample:}_TP_1ptag2jet_{mva:}_{mu:}_em_{eta:}_{tp:}{wp:}{jet:}Pt',
+      'hist' : '{var:}/{sample:}_TP_1ptag2jet_MVA{mva:}_{mu:}_em_{eta:}_{tp:}{wp:}{jet:}Pt',
       'var'  : 'SysNominal',
     }
     r21a1_variation = {
-      'hist' : '{var:}/{sample:}_TP_1ptag2jet_{mva:}_{mu:}_em_{eta:}_{tp:}{wp:}{jet:}Pt_{var:}', 
+      'hist' : '{var:}/{sample:}_TP_1ptag2jet_MVA{mva:}_{mu:}_em_{eta:}_{tp:}{wp:}{jet:}Pt_{var:}', 
       'var'  : r'_*1*up$|_*1*down$',
     }
     r21a1 = {
@@ -90,6 +90,10 @@ class DataConfig(object):
     self.cats['etaCalib'] = {'mu' : ['XMu'], 'eta' : ['_0_7Eta','_7_15Eta','_15Eta'], }
     
   def Samples(self):
+    self.data = {
+      'nominal':['data'],
+    } 
+
     self.samples    = {}
 
     tt = {}
