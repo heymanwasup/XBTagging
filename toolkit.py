@@ -12,6 +12,27 @@ import operator
 import numpy as np
 from copy import deepcopy
 
+class PrintPriority(object):
+  priorities = []
+  def __init__(self,priority):
+    priorities = type(self).priorities
+    priorities.append(priority)
+    type(self).priorities = sorted(set(priorities))
+    self.priority = priority
+  def __call__(self,fun):
+    @functools.wraps(fun)
+    def newFun(*args,**kw):
+      with open('/dev/fd/%s'%(self.GetFd())) as f:
+        sys.stdout,saved = f,sys.stdout
+        res = fun(*args,**kw)
+        sys.stdout = saved
+      return res
+  def GetFd(self):
+    for n,priority in enumerate(type(self).priorities):
+      if priority == self.priority:
+        return 3+n
+
+
 def SmartMap(stop,alg,data):
   def smartMap(stop,alg,data):
     if isinstance(data,list):

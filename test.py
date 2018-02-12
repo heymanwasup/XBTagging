@@ -5,31 +5,36 @@ import importlib
 import libs.cfg as Cfg
 import imp,json
 import hashlib
-import toolkit
+import toolkit,os
 import functools
 import numpy as np
+def main():
+  with open('/dev/fd/1', 'w') as fd1, open('/dev/fd/2', 'w') as fd2, open('/dev/fd/10', 'w') as fd3:
+    print >>fd1,'100'
+    print >>fd2,'200'
+    print >>fd3,'300'
+
 
 class A(object):
   def __init__(self):
-    self.a = 1
+    self.words = 'Hello'
+    self.a = 'Bye'
 
-  def TestWraper(self,name):
-    def wrap(fun):
+  def InnerDecorator(self,words):
+    def wraper(fun):
       @functools.wraps(fun)
       def foo(*args,**kw):
-        print name
-        print self.a*10000
+        print self.words
+        print words
         fun(*args,**kw)
       return foo
-    return wrap
+    return wraper
 
-  @A.TestWraper('haha')
+#@self.TestWraper('world')
   def foo(self):
     print self.a
 
-def main():
-      
-
+def InnerWrapper():
   a = A()
   a.foo()
 
@@ -230,7 +235,7 @@ def WriteVSPrint():
   a = {1:2}
   jstr = json.dumps(a,indent=4,sort_keys=True)
   with open('testP.json','w') as f:
-    toolkit.DumpDictToJson(a,f)
+    toolkit.DumpToJson(a,f)
   with open('testW.json','w') as f:
     f.write(jstr)
   p = toolkit.GetHashFast('testP.json')
@@ -250,7 +255,7 @@ def TestHashstrHashfile():
   h2 = hashlib.md5()
   a = {1:2}
   with open('testhash.json','w') as f:
-    toolkit.DumpDictToJson(a,f)
+    toolkit.DumpToJson(a,f)
    
   h1.update(json.dumps(a,indent=4,sort_keys=True))
   with open('testhash.json','r') as f:

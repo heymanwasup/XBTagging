@@ -76,12 +76,24 @@ class Caliber(object):
     self._binnings = array.array('d',self._binnings)
     self.Hist = GetHistClass('Hist',len(self._binnings)-1)
 
+    self.init_io()
     self.init_environment()
     self.init_varList()
     self.init_scales()
     self.init_samples()
     self.init_wrapFoos()
-  
+
+  def init_io(self):
+    def PrintToFd(fd):
+      def Print(self,*args):
+        with open('/dev/fd/%s'%(fd)) as f:
+          for arg in args:
+            print >>f,arg.__str__()
+      return Print
+
+    self.Warning = PrintToFd(3) 
+    self.SubWarning = PrintToFd(4)
+      
   def init_environment(self):
     self.ftag      = toolkit.GetHashFast(self._input)[::2]
     hasher = hashlib.md5()
@@ -225,26 +237,30 @@ class Caliber(object):
       res[variation] = [down,up]
     return res
 
-  #@toolkit.CopyParameters()
+  @toolkit.PrintPriority(3)
   def GetRawMC(self,fmt,var,samples,scale={}):
     keys = {
       'var' : var,
       'jet' : self._jet,
     }
-
     raw = {}
     for sample, entries in samples.iteritems():
       raw[sample] = {}
       scale['pass'] = False if not 'samples' in scale else scale['samples'].match(sample)
       for name, items in entries.iteritems():
         raw[sample][name] = {}
+
+        isEmpty = True
         for key in ['PxT','PxP','PjT','PjP','PbT','PbP']:
           keys['tp'] = key
-          raw[sample][name][key] = self.GetRawEntries(fmt,keys,items,scale)
-          
+          raw[sample][name][key],status = self.GetRawEntries(fmt,keys,items,scale)
+          isEmpty &= not status
+        if isEmpty:
+          print '\n'+'-'*12
+          print 'Sample Empty:  ',var,sample,name
+          print '-'*12+'\n'
     return raw
 
-  #@toolkit.CopyParameters()       
   def GetRawData(self,scale={}):
     if 'samples' in scale:
       scale['pass'] = scale['samples'].match('data')
@@ -259,14 +275,21 @@ class Caliber(object):
     }
     raw = {'data':{}}
     bad = True 
+    
+    isEmpty = True 
+      
     for tp in ['PxT','PxP']:
       keys['tp'] = tp
-      raw['data'][tp] = self.GetRawEntries(hfmt,keys,self._data,scale)
+      raw['data'][tp],status = self.GetRawEntries(hfmt,keys,self._data,scale)
+      isEmpty &= not status
+   
+    if isEmpty:
+      raise RuntimeError('data is empty')
 
     return raw
       
    
-  #@toolkit.CopyParameters()
+  @toolkit.PrintPriority(4)
   def GetRawEntries(self,fmt,keys,samples,scale):
     keys.update(self.cat_itm)
     hist = self.Hist()
@@ -286,14 +309,15 @@ class Caliber(object):
         hist_temp = self.Hist(th1)
         hist_temp.Scale(hsf)
         hist.Add(hist_temp)
-    good, warning = hist.Report()    
-    if not good:
-      print '\n----------'
-      print warning
-      for h,sf in entries:
-        print h
-      print '----------\n'
-    return hist
+    status, verbose = hist.Report()    
+    if not status:
+      print '\n'+'-'*12
+      print verbose
+      for entry in entries:
+        print entry[0]
+      print '-'*12+'\n')
+
+    return hist,status
       
   @staticmethod
   def GetHistSF(scale,keys):
@@ -321,7 +345,7 @@ class Caliber(object):
     def Wraper(fun): 
       @functools.wraps(fun)
       def newFun(*args,**kw):
-        if True or not os.path.isfile(json_name):
+        if isDebug or not os.path.isfile(json_name):
           res_h = fun(*args,**kw)
           self.JsonToHist(res_h,inverse=True)
           with open(json_name,'w') as f:
