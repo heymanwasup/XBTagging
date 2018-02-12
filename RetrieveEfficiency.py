@@ -87,7 +87,7 @@ class Caliber(object):
     def PrintToFd(fd,name):
       head = '{0:<15}'.format('[{0:} {1:}]'.format(name,fd))
       def Print(*args):
-        with open('/dev/fd/%s'%(fd),'w') as f:
+        with open('/dev/fd/%s'%(fd),'a') as f:
           print >>f,'\n','-'*12
           for arg in args:
             print >>f,'{0:} {1:}'.format(head,arg.__str__())
@@ -96,6 +96,7 @@ class Caliber(object):
     self.Warning    = PrintToFd(0,'Warning') 
     self.FBIWarning = PrintToFd(1,'FBIWarning')
     self.CCPWarning = PrintToFd(2,'CCPWarning')
+    self.STDOUT     = PrintToFd(1,'STDOUT')
       
   def init_environment(self):
     self.ftag      = toolkit.GetHashFast(self._input)[::2]
@@ -145,11 +146,11 @@ class Caliber(object):
 
   def LoadingCfg(self):
     self.gene_cfg = toolkit.json_loads(self.cfg_str)
-    toolkit.DumpToJson(self.gene_cfg) 
+    #toolkit.DumpToJson(self.gene_cfg) 
 
     for key,value in self.gene_cfg.iteritems():
       setattr(self,'_%s'%key,value)
-
+    
     cat_keys = self._cats.keys()
     cat_vals = (self._cats[key] for key in cat_keys)
     cat_itms = list(itertools.product(*cat_vals))
@@ -174,8 +175,7 @@ class Caliber(object):
 #self.Initialize()
 
     while self.Next():
-      print self.cat_itm
-      print self.cat_str
+      self.STDOUT(self.cat_itm, self.cat_str)
       self.PerformTagAndProbe()
 
   def PerformTagAndProbe(self):
@@ -264,6 +264,7 @@ class Caliber(object):
       samples_used = ['<%s> %s'%(sample,name) for name in entries \
                      for sample,entries in samples.iteritems()]
       self.CCPWarning('MC Empty!',var,*samples_used)
+     
           
     return raw
 
