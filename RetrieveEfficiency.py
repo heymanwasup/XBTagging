@@ -84,15 +84,16 @@ class Caliber(object):
     self.init_wrapFoos()
 
   def init_io(self):
-    def PrintToFd(fd):
+    def PrintToFd(fd,name):
       def Print(self,*args):
         with open('/dev/fd/%s'%(fd)) as f:
+          print >>f,'\n','-'*12
           for arg in args:
-            print >>f,arg.__str__()
+            print >>f,'[{0:^12}]    {1:}'.format(name,arg.__str__())
+          print >>f,'-'*12,'\n'
       return Print
-
-    self.Warning = PrintToFd(2) 
-    self.SubWarning = PrintToFd(0)
+    self.Warning = PrintToFd(0,'Warning 0') 
+    self.FBIWarning = PrintToFd(2,'FBIWarning 2')
       
   def init_environment(self):
     self.ftag      = toolkit.GetHashFast(self._input)[::2]
@@ -256,9 +257,7 @@ class Caliber(object):
           raw[sample][name][key],status = self.GetRawEntries(fmt,keys,items,scale)
           isEmpty &= not status
         if isEmpty:
-          print '\n'+'-'*12
-          print 'Sample Empty:  ',var,sample,name
-          print '-'*12+'\n'
+          self.FBIWarning('Sample Empty',var,sample,name)
     return raw
 
   def GetRawData(self,scale={}):
@@ -311,11 +310,7 @@ class Caliber(object):
         hist.Add(hist_temp)
     status, verbose = hist.Report()    
     if not status:
-      print '\n'+'-'*12
-      print verbose
-      for entry in entries:
-        print entry[0]
-      print '-'*12+'\n'
+      self.Warning(verbose,*[entry[0] for entry in entries])
 
     return hist,status
       

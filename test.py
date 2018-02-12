@@ -5,11 +5,30 @@ import importlib
 import libs.cfg as Cfg
 import imp,json
 import hashlib
-import toolkit,os
+import toolkit,os,sys
 import functools
 import numpy as np
+
 def main():
-  with open('/dev/fd/1', 'w') as fd1, open('/dev/fd/2', 'w') as fd2, open('/dev/fd/10', 'w') as fd3:
+  print sys.argv
+
+  with os.fdopen(3,'w') as f:
+    print >>f,f.fileno()
+    print >>f,'hello'
+    
+outfiles = {} 
+for _ in range(3): 
+    fd = os.dup(1)
+    outfiles[fd] = os.fdopen(fd, 'w')
+
+def PrintToFD():
+  for no in outfiles.keys(): 
+    print >>outfiles[no], "foo"
+    print >>outfiles[no], outfiles[no].fileno()
+
+
+def fd1():
+  with open('/dev/fd/1', 'w') as fd1, open('/dev/fd/2', 'w') as fd2, open('/dev/fd/3', 'w') as fd3:
     print >>fd1,'100'
     print >>fd2,'200'
     print >>fd3,'300'
