@@ -91,8 +91,8 @@ class Caliber(object):
             print >>f,arg.__str__()
       return Print
 
-    self.Warning = PrintToFd(3) 
-    self.SubWarning = PrintToFd(4)
+    self.Warning = PrintToFd(2) 
+    self.SubWarning = PrintToFd(0)
       
   def init_environment(self):
     self.ftag      = toolkit.GetHashFast(self._input)[::2]
@@ -237,7 +237,7 @@ class Caliber(object):
       res[variation] = [down,up]
     return res
 
-  @toolkit.PrintPriority(3)
+  @toolkit.PrintPriority(2)
   def GetRawMC(self,fmt,var,samples,scale={}):
     keys = {
       'var' : var,
@@ -289,7 +289,7 @@ class Caliber(object):
     return raw
       
    
-  @toolkit.PrintPriority(4)
+  @toolkit.PrintPriority(1)
   def GetRawEntries(self,fmt,keys,samples,scale):
     keys.update(self.cat_itm)
     hist = self.Hist()
@@ -315,7 +315,7 @@ class Caliber(object):
       print verbose
       for entry in entries:
         print entry[0]
-      print '-'*12+'\n')
+      print '-'*12+'\n'
 
     return hist,status
       

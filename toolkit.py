@@ -22,15 +22,17 @@ class PrintPriority(object):
   def __call__(self,fun):
     @functools.wraps(fun)
     def newFun(*args,**kw):
-      with open('/dev/fd/%s'%(self.GetFd())) as f:
+      fd = '/dev/fd/%s'%(self.GetFd())
+      with open(fd,'w') as f:
         sys.stdout,saved = f,sys.stdout
         res = fun(*args,**kw)
         sys.stdout = saved
       return res
+    return newFun
   def GetFd(self):
     for n,priority in enumerate(type(self).priorities):
       if priority == self.priority:
-        return 3+n
+        return n
 
 
 def SmartMap(stop,alg,data):
