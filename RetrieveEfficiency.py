@@ -85,15 +85,17 @@ class Caliber(object):
 
   def init_io(self):
     def PrintToFd(fd,name):
-      def Print(self,*args):
-        with open('/dev/fd/%s'%(fd)) as f:
+      head = '{0:<15}'.format('[{0:} {1:}]'.format(name,fd))
+      def Print(*args):
+        with open('/dev/fd/%s'%(fd),'w') as f:
           print >>f,'\n','-'*12
           for arg in args:
-            print >>f,'[{0:^12}]    {1:}'.format(name,arg.__str__())
+            print >>f,'{0:} {1:}'.format(head,arg.__str__())
           print >>f,'-'*12,'\n'
       return Print
-    self.Warning = PrintToFd(0,'Warning 0') 
-    self.FBIWarning = PrintToFd(2,'FBIWarning 2')
+    self.Warning    = PrintToFd(0,'Warning') 
+    self.FBIWarning = PrintToFd(1,'FBIWarning')
+    self.CCPWarning = PrintToFd(2,'CCPWarning')
       
   def init_environment(self):
     self.ftag      = toolkit.GetHashFast(self._input)[::2]
@@ -187,7 +189,7 @@ class Caliber(object):
     str_variations = json.dumps(raw_variations,indent=4,sort_keys=True)
 
 
-
+    return 
     dish_nominal = self.CookNominal(raw_nominal)  
     dish_modellings = self.CookModellings(raw_nominal)
     dish_scales = self.CookScales(raw_scales)
@@ -238,26 +240,31 @@ class Caliber(object):
       res[variation] = [down,up]
     return res
 
-  @toolkit.PrintPriority(2)
   def GetRawMC(self,fmt,var,samples,scale={}):
     keys = {
       'var' : var,
       'jet' : self._jet,
     }
     raw = {}
+    mcEmpty = True
     for sample, entries in samples.iteritems():
       raw[sample] = {}
       scale['pass'] = False if not 'samples' in scale else scale['samples'].match(sample)
       for name, items in entries.iteritems():
         raw[sample][name] = {}
-
         isEmpty = True
         for key in ['PxT','PxP','PjT','PjP','PbT','PbP']:
           keys['tp'] = key
           raw[sample][name][key],status = self.GetRawEntries(fmt,keys,items,scale)
           isEmpty &= not status
+        mcEmpty &= isEmpty
         if isEmpty:
           self.FBIWarning('Sample Empty',var,sample,name)
+    if mcEmpty:
+      samples_used = ['<%s> %s'%(sample,name) for name in entries \
+                     for sample,entries in samples.iteritems()]
+      self.CCPWarning('MC Empty!',var,*samples_used)
+          
     return raw
 
   def GetRawData(self,scale={}):
@@ -288,7 +295,6 @@ class Caliber(object):
     return raw
       
    
-  @toolkit.PrintPriority(1)
   def GetRawEntries(self,fmt,keys,samples,scale):
     keys.update(self.cat_itm)
     hist = self.Hist()
