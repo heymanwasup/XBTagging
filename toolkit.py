@@ -132,6 +132,28 @@ class TemplateHist(object):
   always_report = False
   altHist = None
   
+  def __init__(self,th1=None,vals=None,errs=None):
+    self.SetDefault()
+    if th1!=None:
+      self.vals = [ th1.GetBinContent(n+1) for n in range(self.nbins) ]
+      self.errs = [ th1.GetBinError(n+1)   for n in range(self.nbins) ]
+    elif vals!=None:
+      self.vals = list(vals)
+      if errs!=None:
+        self.errs = list(errs)
+    
+  def __iter__(self):
+    self.current = 0
+    return self
+  def next(self):
+    if self.current==type(self).nbins:
+      raise StopIteration
+    else:
+      self.current += 1
+      return (self.vals[current-1],self.errs[current-1])
+
+
+
   def IsSame(self,other):
     if self.__doc__ == other.__doc__:
       res = True
@@ -145,16 +167,6 @@ class TemplateHist(object):
     else:
       return type(self).altHist
 
-  def __init__(self,th1=None,vals=None,errs=None):
-    self.SetDefault()
-    if th1!=None:
-      self.vals = [ th1.GetBinContent(n+1) for n in range(self.nbins) ]
-      self.errs = [ th1.GetBinError(n+1)   for n in range(self.nbins) ]
-    elif vals!=None:
-      self.vals = list(vals)
-      if errs!=None:
-        self.errs = list(errs)
-    
     if type(self).always_report:
       good,verbose = self.Report()
       if not good:

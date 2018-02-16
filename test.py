@@ -11,13 +11,31 @@ from toolkit import ALG
 import functools
 import numpy as np
 
-class LambdaCls(object):
-  pass
 
 def main():
-  a = LambdaCls()
-  a.foo = lambda x,y:x+y
-  print a.foo(1,2)
+  class Counter:
+    def __init__(self, low, high):
+      self.low = low
+      self.high = high
+
+    def __iter__(self):
+        print 'in iter'
+        self.current = self.low
+        return self
+
+    def next(self): # Python 3: def __next__(self)
+        print 'in next'
+        if self.current > self.high:
+            raise StopIteration
+        else:
+            self.current += 1
+            return self.current - 1
+
+
+  for c in Counter(3, 8):
+      print c
+
+
   
 
 
