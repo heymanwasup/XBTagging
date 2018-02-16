@@ -96,9 +96,9 @@ class Caliber(object):
           print >>f,'-'*12,'\n'
       return Print
     self.Warning    = PrintToFd(0,'Warning') 
-    self.FBIWarning = PrintToFd(1,'FBIWarning')
-    self.CCPWarning = PrintToFd(2,'CCPWarning')
-    self.STDOUT     = PrintToFd(1,'STDOUT')
+    self.FBIWarning = PrintToFd(2,'FBIWarning')
+#    self.CCPWarning = PrintToFd(2,'CCPWarning')
+#    self.STDOUT     = PrintToFd(1,'STDOUT')
       
   def init_environment(self):
     self.ftag      = toolkit.GetHashFast(self._input)[::2]
@@ -179,7 +179,9 @@ class Caliber(object):
 #self.Initialize()
 
     while self.Next():
-      self.STDOUT(self.cat_itm, self.cat_str)
+      print self.cat_itm
+      print self.cat_str
+#self.STDOUT(self.cat_itm, self.cat_str)
       self.PerformTagAndProbe()
 
   def PerformTagAndProbe(self):
@@ -261,7 +263,7 @@ class Caliber(object):
     if mcEmpty:
       samples_used = ['<%s> %s'%(sample,name) for name in entries \
                      for sample,entries in samples.iteritems()]
-      self.CCPWarning('MC Empty!',var,*samples_used)
+      self.FBIWarning('MC Empty!',var,*samples_used)
     return raw
 
   def GetRawData(self,scale={}):
@@ -353,7 +355,7 @@ class Caliber(object):
       dish_up = self.Cook(sam_up)
       dish_down = self.Cook(sam_down)
       variations[var] = [dish_down,dish_up]
-   return variations
+    return variations
 
   def CookRandom(self,r,raw):
     def gwalker(tot,pas,toterr,paserr):
@@ -482,7 +484,25 @@ class Caliber(object):
       errorAlter[name] = ALG().Map(isHist,lambda x,y:((x-y)/2).Abs(),*entries)
     return errorAlter
 
-  def DumpResults(results,err_stat,err_modellings,err_scales,err_variations):
+  def DumpResults(results,err_stat,err_mod,err_scal,err_var):
+    def dump_err(data,errs,key):
+      for name in errs.keys():
+        data[key][name] = errs[name][key]
+    keys = results.keys()
+    data = {} 
+    for key in keys():
+      data[key] = {}
+      data[key]['nominal'] = results[key]
+      dump_err(data,err_stat,key)
+      dump_err(data,err_mod,key)
+      dump_err(data,err_scal,key)
+      dump_err(data,err_var,key)
+    with open('%s/output.json'%(self.out_dir),'w') as f:
+      toolkit.DumpToJson(data,f)
+    
+     
+     
+
 
       
   def LoadFromCache(self,name,Hist):
@@ -547,7 +567,7 @@ def GetHistClass(name,nbins):
     isEmpty,verbose = self.IsEmpty()
     assert not isEmpty, verbose
     for val in self.vals:
-      assert not val<0., 'negative value!',self.vals.__str__()
+      assert not val<0., 'negative value! %s'%self.vals.__str__()
   def Warnings_dish(self):
     good = True
     for n in range(1,type(self).nbins):
