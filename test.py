@@ -1,4 +1,5 @@
 from copy import deepcopy
+from copy import copy
 import re
 import importlib
 
@@ -6,20 +7,54 @@ import libs.cfg as Cfg
 import imp,json
 import hashlib
 import toolkit,os,sys
+from toolkit import ALG
 import functools
 import numpy as np
 
-def main():
-  print sys.argv
+class LambdaCls(object):
+  pass
 
-  with os.fdopen(3,'w') as f:
-    print >>f,f.fileno()
-    print >>f,'hello'
-    
-outfiles = {} 
-for _ in range(3): 
-    fd = os.dup(1)
-    outfiles[fd] = os.fdopen(fd, 'w')
+def main():
+  a = LambdaCls()
+  a.foo = lambda x,y:x+y
+  print a.foo(1,2)
+  
+
+
+
+class OBJ:
+  fun =lambda x:x
+  fun = staticmethod(fun)
+#fun = staticmethod(lambda x:x)
+
+
+def TestALG():
+  data_a = {1:[{'is':0},{'is':1}],2:[{'is':2},{1:{'is':3}}]}
+  data_b = deepcopy(data_a)
+  data_c = deepcopy(data_a)
+
+  alg_add_is = lambda A,B:{'is':A['is']+B['is']}
+  alg_add_int = lambda x,y:x+y
+  alg_update = lambda x:toolkit.MergeDict(x,{'was':'nothing'})
+
+  stop_is = lambda x : True if isinstance(x,dict) and 'is' in x else False
+  stop_int = lambda x : True if isinstance(x,int) else False 
+
+  data_add_int = ALG().Reduce(stop_int,alg_add_int,[data_a,data_b,data_c])
+  data_add_is = ALG().Reduce(stop_is,alg_add_is,[data_a,data_b,data_c])
+  data_update = ALG().Map(stop_is,alg_update,data_a)
+  data_add_map = ALG().Map(stop_is,alg_add_is,data_a,data_b)
+  
+  print data_a
+  print data_b
+  print data_c
+
+  print data_add_int
+  print data_add_is
+  print data_update
+  print data_add_map
+  
+
 
 def PrintToFD():
   for no in outfiles.keys(): 

@@ -2,7 +2,6 @@ import hashlib
 import math
 import functools
 import time
-import pickle
 import re
 import sys
 import json
@@ -10,7 +9,69 @@ import os
 import commands
 import operator
 import numpy as np
-from copy import deepcopy
+from copy import deepcopy,copy
+
+class ALG(object):
+  iters = staticmethod( \
+      lambda dt : \
+      range(len(dt)) if isinstance(dt,list) else dt.keys())
+
+  setter = staticmethod( \
+      lambda dt,itm,entry : \
+      dt.append(entry) if isinstance(dt,list) else dt.update({itm:entry}))
+
+  getter = staticmethod(lambda dt,itm:dt[itm])
+  
+  def smartMap(self,stop,alg,result,*args):
+    for itm in type(self).iters(args[0]):
+      entries = [ type(self).getter(arg,itm) for arg in args ]
+      if stop(entries[0]):
+        type(self).setter(result,itm,alg(*entries))
+      else:
+        to_entry = type(entries[0])()
+        type(self).setter(result,itm,to_entry)
+        self.smartMap(stop,alg,to_entry,*entries)
+
+  def isIsomorphism(self,A,B,stop):
+    if not isinstance(A,type(B))\
+      or not (isinstance(A,list) or isinstance(A,dict)):
+      return False
+    isomorphism = True
+    for itm in type(self).iters(A):
+      a = type(self).getter(A,itm)
+      b = type(self).getter(B,itm)
+      if stop(a) and stop(b):
+        continue
+      elif stop(a) or stop(b):
+        return False
+      else:
+        if not self.isIsomorphism(a,b,stop):
+          return False
+    return isomorphism
+    
+  def Map(self,stop,alg,*args):
+    if len(args)>1:
+      isIso = True
+      for n in range(len(args)-1):
+        isIso &= self.isIsomorphism(args[n],args[n+1],stop)
+      if not isIso:
+        raise ValueError('not all ISO')
+    result = type(args[0])()
+    self.smartMap(stop,alg,result,*args)
+    return result
+
+  def Reduce(self,stop,bi_alg,args):
+    if len(args)<2:
+      raise ValueError('at least two args needed for Reduce')
+    wraper = lambda alg : lambda *atoms : reduce(alg,atoms)
+    alg = wraper(bi_alg)
+    res = self.Map(stop,alg,*args)
+    return res
+
+def MergeDict(A,B):
+  Res = copy(A)
+  Res.update(B)
+  return Res
 
 class PrintPriority(object):
   priorities = []
@@ -34,22 +95,6 @@ class PrintPriority(object):
       if priority == self.priority:
         return n
 
-
-def SmartMap(stop,alg,data):
-  def smartMap(stop,alg,data):
-    if isinstance(data,list):
-      iters = lambda dt : range(len(data))
-    elif isinstance(data,dict):
-      iters = lambda dt : dt.keys()
-    else:  
-      raise ValueError('only "dict", "list" data structure supported')
-
-    for itm in iters(data):
-      if stop(data[itm]):
-        data[itm] = alg(data[itm])
-      else:
-        smartMap(stop,alg,data[itm])
-  smartMap(stop,alg,data)
 
 def json_load(file_handle):
     return _byteify(
@@ -85,6 +130,7 @@ class TemplateHist(object):
   do_assert = False
   do_warnings = False
   always_report = False
+  altHist = None
   
   def IsSame(self,other):
     if self.__doc__ == other.__doc__:
@@ -92,6 +138,12 @@ class TemplateHist(object):
     else:
       res = False
     return res
+
+  def AltHist(self):
+    if not IsSame(self,type(self).altHist):
+      return type(self)
+    else:
+      return type(self).altHist
 
   def __init__(self,th1=None,vals=None,errs=None):
     self.SetDefault()
@@ -104,7 +156,9 @@ class TemplateHist(object):
         self.errs = list(errs)
     
     if type(self).always_report:
-      self.Report()
+      good,verbose = self.Report()
+      if not good:
+        print 'Error in init hist',verbose
   
   def Report(self):   
     if type(self).do_warnings:
@@ -118,6 +172,19 @@ class TemplateHist(object):
   def SetDefault(self):
     self.vals   = [type(self).default_val for n in range(type(self).nbins)]
     self.errs   = [type(self).default_err for n in range(type(self).nbins)]
+
+  def IsEmpty(self):
+    isEmpty = True
+    isNan   = True
+    for n in range(1,type(self).nbins):
+      isEmpty &= (self.vals[n]==type(self).default_val) or (math.isnan(self.vals[n]))
+      isNan &= math.isnan(self.vals[n])
+    verbose = ''  
+    if isEmpty:
+      verbose += 'Empty Histogram!'
+      if isNan:
+        verbose += ' with Nan {0:}'.format(self.vals.__str__())
+    return isEmpty,verbose
 
   def Assert(self):
     pass
@@ -140,7 +207,8 @@ class TemplateHist(object):
     self.vals = list(map(lambda x:x*sf,self.vals))
   def Operation(self,other,operator_val):
     _other_vals = other.vals if self.IsSame(other) else other
-    return type(self)(vals=map(operator_val,self.vals,_other_vals))
+    return self.AltHist()(vals=map(operator_val,self.vals,_other_vals))
+  
  
   def __str__(self):
     return zip(self.vals,self.errs).__str__()
@@ -161,7 +229,7 @@ class TemplateHist(object):
     return type(self)(val=map(lambda x:math.sqrt,self.vals))
 
 class CopyParameters(object):
-  def __init__(self,types=[dict]):
+  def __init__(self,types=[dict,list]):
     self.types = types
 
   def IsInTypes(self,obj):
@@ -249,7 +317,6 @@ def mkdir(path):
     res = commands.getstatusoutput('mkdir -p %s'%(path)) 
     print res
     if not res[0]:
-      print res[1]
       raise IOError(res[1])
 
 def DumpToJson(data,f=sys.stdout):
@@ -296,11 +363,6 @@ def InverseFormat(fmt,res):
     values.append(temp)
   return dict(zip(keys,values))
 
-def main():
-  PartialFormat('{a:}af{f:}{c:}',{'a':1,'c':3})
-  
-if __name__ == '__main__':
-  main()
 
   
 def GetVarsList(rfile,Pnominal,Pvars):
@@ -327,3 +389,9 @@ def GetVarsList(rfile,Pnominal,Pvars):
     if len(Vars[var])==1:
       Vars[var].append(Pnominal)
   return Vars
+
+def main():
+  PartialFormat('{a:}af{f:}{c:}',{'a':1,'c':3})
+  
+if __name__ == '__main__':
+  main()
