@@ -6,7 +6,7 @@ from toolkit import ALG
 from data.CommonDataInterface import DataConfig
 
 
-isDebug = True
+isDebug = False
 
 class RetrieveEfficiency(object):
   def __init__(self,cfg_path):
@@ -140,10 +140,10 @@ class Caliber(object):
     self.nominal_samples = { sam:{name:self._samples_register[sam][name]} \
       for sam,name in self._nominals.iteritems() }
 
-  def init_Foos(self):
+  def init_wrapFoos(self):
     self.isHist = lambda hist : True if hist.__doc__ == '__MetaHistogram__' else False
     f = lambda foo,cache,Hist:setattr(self,foo,self.LoadFromCache(cache,Hist)(getattr(self,foo))) 
-    f('GetRawNominals','raw_nominals',self.Hist)  
+    f('GetRaw','raw',self.Hist)  
     f('GetRawScales','raw_scales',self.Hist)
     f('GetRawVariations','raw_variations',self.Hist)
 
@@ -186,12 +186,14 @@ class Caliber(object):
 
   def PerformTagAndProbe(self):
 
-    raw_nominal = self.GetRawNominals()
+    raw = self.GetRaw()
+    raw_nominal = self.LoadNominal(raw)
+
     raw_scales = self.GetRawScales()
     raw_variations = self.GetRawVariations()
 
     dish_nominal = self.CookNominal(raw_nominal)  
-    dish_modellings = self.CookModellings(raw_nominal)
+    dish_modellings = self.CookModellings(raw,raw_nominal)
     dish_scales = self.CookScales(raw_scales)
     dish_variations = self.CookVariations(raw_variations,raw_nominal['data'])
       
@@ -203,7 +205,7 @@ class Caliber(object):
     self.DumpResults(dish_nominal,
         err_stat,err_modellings,err_scales,err_variations)
 
-  def GetRawNominals(self):
+  def GetRaw(self):
     samples = self._samples_register
     scale   = {}
     raw = self.GetRawDataMC(samples,scale)
@@ -222,9 +224,9 @@ class Caliber(object):
     res = {}
     for name,scale in self._scales.items():
       scale['status'] = 0
-      down = self.GetRawDataMC(samples,scale)
+      down = self.LoadNominal(self.GetRawDataMC(samples,scale))
       scale['status'] = 1
-      up = self.GetRawDataMC(samples,scale)
+      up   = self.LoadNominal(self.GetRawDataMC(samples,scale))
       res[name] = [down,up]
     return res
 
@@ -235,8 +237,8 @@ class Caliber(object):
     samples = self.nominal_samples
     res = {}
     for variation,up_down in self.varsList.iteritems():
-      down = self.GetRawMC(fmt,up_down[0],samples)
-      up   = self.GetRawMC(fmt,up_down[1],samples)
+      down = self.LoadNominal(self.GetRawMC(fmt,up_down[0],samples))
+      up   = self.LoadNominal(self.GetRawMC(fmt,up_down[1],samples))
       res[variation] = [down,up]
     return res
 
@@ -293,47 +295,49 @@ class Caliber(object):
 
     return raw
 
-  def Cook(entry):
+  def Cook(self,entry):
     keys = entry.keys() 
     ntKeys = set(keys) - set(['data','tt'])
     dt = entry['data']
     tt = entry['tt']
+    
     nt = ALG().Reduce(
         lambda obj:True if isinstance(obj,self.Hist) else False,
         operator.add,
         [entry[key] for key in ntKeys])
     self.Hist.altHist = self.HistD
-    I = self.HistD(vals=[1]*type(self.Hist).nbins)
+    I = self.HistD(vals=[1]*self.Hist.nbins)
     dish = {}
     dish['f_tb'] = tt['PbT']/(tt['PbT']+tt['PjT'])
     dish['e_nb'] = tt['PjP']/tt['PjT']
     dish['e_mc'] = tt['PbP']/tt['PbT'] 
+    dish['e_tt'] = (dt['PxP']-nt['PxP'])/(dt['PxT']-nt['PxT'])
     dish['e_dt'] = (dish['e_tt']-dish['e_nb']*(I-dish['f_tb']))/dish['f_tb']
     dish['sf'] = dish['e_dt']/dish['e_mc']
     self.Hist.altHist = None
     return dish
 
-  def GetNominal(self,raw): 
+  def LoadNominal(self,raw): 
     samples = {}
-    for sample,name in self._nominals.iteritems():
+    for sample,entries in raw.iteritems():
       if sample == 'data':
-        samples[sample] = raw[sample]
-      samples[sample] = raw[sample][name]
+        samples['data'] = raw['data']
+      else:
+        samples[sample] = entries[self._nominals[sample]]
     return samples
 
-  def CookNominal(self,raw):
-    samples = GetNominal(raw)
-    dish = self.Cook(samples)
+  def CookNominal(self,raw_nominal):
+    dish = self.Cook(raw_nominal)
     return dish
  
-  def CookModellings(self,raw):
+  def CookModellings(self,raw,raw_nominal):
     modellings = {}
     for sample,modelling in self._modellings.iteritems():
       for name,samples in modelling.iteritems():
         down = samples[0] 
         up   = samples[1] 
-        sam_down = toolkit.MergeDict(self.GetNominal(raw),{sample:raw[sample][samples[0]]})
-        sam_up = toolkit.MergeDict(self.GetNominal(raw),{sample:raw[sample][samples[1]]})
+        sam_down = toolkit.MergeDict(raw_nominal,{sample:raw[sample][samples[0]]})
+        sam_up   = toolkit.MergeDict(raw_nominal,{sample:raw[sample][samples[1]]})
         dish_down = self.Cook(sam_down)
         dish_up = self.Cook(sam_up)
         modellings[name] = [dish_down, dish_up] 
@@ -351,16 +355,25 @@ class Caliber(object):
     variations = {}
     for var,entries in raw_var.iteritems():
       sam_down = toolkit.MergeDict({'data':raw_data},entries[0])
-      sam_up = toolkit.MergeDict({'data':raw_data},entries[1])
+      sam_up   = toolkit.MergeDict({'data':raw_data},entries[1])
       dish_up = self.Cook(sam_up)
       dish_down = self.Cook(sam_down)
       variations[var] = [dish_down,dish_up]
     return variations
 
-  def CookRandom(self,r,raw):
+  def CookRandom(self,r,orig):
     def gwalker(tot,pas,toterr,paserr):
+      tot = [t if t>0 else 0 for t in tot ]
+      pas = [p if p>0 else 0 for p in pas ]
       gaus = lambda x,y:r.Gaus(x,y) if r.Gaus(x,y)>0 else 0
+
       ratio = [ float(pas[n])/tot[n] if tot[n]!=0 else 0 for n in range(len(pas)) ]
+      p = lambda x:list(map(lambda y:'{0:.3f}'.format(y),x))
+      '''
+      print 'tot',p(tot)
+      print 'pas',p(pas)
+      print 'rrr',p(ratio)
+      '''
       paserr = list(map(lambda x,y:x*math.sqrt(y*(1-y)),toterr,ratio))
       Rtot = list(map(gaus,tot,toterr))
       Rpas = list(map(lambda x,y,z:gaus(x*y,z),Rtot,ratio,paserr))
@@ -371,24 +384,25 @@ class Caliber(object):
       Rpas     = list(map(r.Binomial,Rtot,ratio))
       return Rtot,Rpas
     def Toss(r,walker,entries,key_pairs):
-      Rentries = copy(entries)
+      Rentries = copy.copy(entries)
       for ktot,kpas in key_pairs:
-        tot, toterr, pas = entries[ktot].vals, entries[ktot].errs, entries[kpas].vals
-        Rtot, Rpas = walker(tot,pas,toterr)
+        tot, toterr = entries[ktot].vals, entries[ktot].errs
+        pas, paserr = entries[kpas].vals, entries[kpas].errs
+
+        Rtot, Rpas = walker(tot,pas,toterr,paserr)
         Rentries[ktot], Rentries[kpas] = self.Hist(vals=Rtot),self.Hist(vals=Rpas)
-      return Renrties
+      return Rentries
     R_raw_dt = {}
     R_raw_mc = {}
-    orig = self.GetNominal(raw)
     for sample, entries in orig.iteritems():
       if sample == 'data':
         R_entries = Toss(r,pwalker,entries,[('PxT','PxP')])
         R_raw_dt[sample] = R_entries
       else:
-        R_entries = gwalker(r,entries,[('PxT','PxP'),('PbT','PbP'),('PjT','PjP')])
+        R_entries = Toss(r,gwalker,entries,[('PxT','PxP'),('PbT','PbP'),('PjT','PjP')])
         R_raw_mc[sample] = R_entries
-    R_dt = toolkit.MergeDict(raw,R_raw_dt)
-    R_mc = toolkit.MergeDict(raw,R_raw_mc)
+    R_dt = toolkit.MergeDict(orig,R_raw_dt)
+    R_mc = toolkit.MergeDict(orig,R_raw_mc)
     return self.Cook(R_dt),self.Cook(R_mc)
 
   def ErrorStat(self,raw):
@@ -463,9 +477,9 @@ class Caliber(object):
     algAtomToHist = wraper(isAtom,atomToHist)
 
     if not inverse:
-      out = toolkit.Map(stop=isAtom,alg=atomToHist,data=data)
+      out = ALG().Map(isAtom,atomToHist,data)
     else:
-      out = toolkit.Map(stop=isHist,alg=histToAtom,data=data)
+      out = ALG().Map(isHist,histToAtom,data)
     return out
 
   def ErrorModellings(self,dishes):
@@ -506,15 +520,15 @@ class Caliber(object):
 
       
   def LoadFromCache(self,name,Hist):
-    json_name = '%s/%s___%s.json'%(self.cache_dir,self.ctag,name)
+    json_name = '%s/%s___%s.json'%(self.cache_dir,self._rtag,name)
     def Wraper(fun): 
       @functools.wraps(fun)
       def newFun(*args,**kw):
-        if isDebug or not os.path.isfile(json_name):
+        if self._loadCache or not os.path.isfile(json_name):
           res_h = fun(*args,**kw)
           res_j = self.JsonToHist(res_h,Hist,inverse=True)
           with open(json_name,'w') as f:
-            toolkit.DumpToJson(res_h,f)
+            toolkit.DumpToJson(res_j,f)
         with open(json_name,'r') as f:
           res_j = toolkit.json_loads(f.read())
         res_h = self.JsonToHist(res_j,Hist)  
@@ -557,7 +571,7 @@ def GetHistClass(name,nbins):
       assert not math.isnan(val)
   def Warnings_raw(self):
     isEmpty,verbose = self.IsEmpty()
-    return not self.isEmpty, verbose
+    return not isEmpty, verbose
   def Gurantee_dish(self):
     self.vals[0], self.errs[0] = 0, 0
     for n in range(1,type(self).nbins):

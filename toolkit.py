@@ -140,7 +140,7 @@ class TemplateHist(object):
     return res
 
   def AltHist(self):
-    if not IsSame(self,type(self).altHist):
+    if not self.IsSame(type(self).altHist):
       return type(self)
     else:
       return type(self).altHist
@@ -222,11 +222,15 @@ class TemplateHist(object):
   def __mul__(self,other):
     return self.Operation(other,operator.mul)
   def __div__(self,other):
+    try:
+      iter(other)
+    except TypeError:
+      other = [other]*type(self).nbins
     return self.Operation(other,lambda x,y:x/y if y!=0 else float('nan'))
   def __pow__(self,n):
-    return type(self)(val=map(lambda x:x**n,self.vals))
+    return type(self)(vals=map(lambda x:x**n,self.vals))
   def sqrt(self):
-    return type(self)(val=map(lambda x:math.sqrt,self.vals))
+    return type(self)(vals=map(lambda x:math.sqrt,self.vals))
 
 class CopyParameters(object):
   def __init__(self,types=[dict,list]):

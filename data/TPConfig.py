@@ -7,6 +7,7 @@ class Settings(object):
 
 
     self.nToys      = 10000
+    self.loadCache  = False
     self.binnings   = 'CalNew'
     self.nominal    = False
     self.rebinning  = False
