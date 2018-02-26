@@ -18,7 +18,6 @@ class RetrieveEfficiency(object):
     Cfg = self.MakeConfigDict(tp_cfg,cm_cfg)
     self.caliber = Caliber(Cfg)
 
-
   def Work(self):
     self.caliber.Run()
 
@@ -116,7 +115,7 @@ class Caliber(object):
 
   def init_varList(self):
     if not self._nominal:
-      vars_json = '%s/variations.json'%(self.cache_dir)
+      vars_json = '%s/variations.json'%(self.out_dir)
       if not os.path.isfile(vars_json):
         data = Caliber.GetVarsList(self.file,
             self._format['nominal']['var'],
@@ -143,7 +142,7 @@ class Caliber(object):
 
   def init_wrapFoos(self):
     self.isHist = lambda hist : True if hist.__doc__ == '__MetaHistogram__' else False
-    f = lambda foo,cache,Hist:setattr(self,foo,self.LoadFromCache(cache,Hist)(getattr(self,foo))) 
+    f = lambda foo,name,Hist:setattr(self,foo,self.LoadFromJson(name,Hist)(getattr(self,foo))) 
     f('GetRaw','raw',self.HistR)  
     f('GetRawScales','raw_scales',self.HistR)
     f('GetRawVariations','raw_variations',self.HistR)
@@ -523,12 +522,13 @@ class Caliber(object):
           pass
       toolkit.DumpToJson(data,f)
       
-  def LoadFromCache(self,name,Hist):
-    json_name = '%s/%s___%s.json'%(self.cache_dir,self._rtag,name)
+  def LoadFromJson(self,name,Hist):
+    json_name = '%s/%s.json'%(self.out_dir,name)
     def Wraper(fun): 
       @functools.wraps(fun)
       def newFun(*args,**kw):
-        if not self._loadCache or not os.path.isfile(json_name):
+        if not self._loadFromJson or not os.path.isfile(json_name):
+          self.STDOUT('Producing json file :','\t%s'%(json_name))
           res_h = fun(*args,**kw)
           res_j = self.JsonToHist(res_h,Hist,inverse=True)
           with open(json_name,'w') as f:
@@ -624,16 +624,13 @@ def GetHistClass(name,nbins):
   elif name == 'Error':
     Hist = toolkit.FooCopyClass(name,toolkit.TemplateHist,new_attrs=report_error)
   else:
-    raise ValueError('name should be Dish or Raw, {0:} got'.format(name))
+    raise ValueError('histogram name not found: {0:}'.format(name))
   return Hist
 
   
 def main():
-  pass
   worker = RetrieveEfficiency('./XBTagging/data/TPConfig.py')
   worker.Work()
  
 if __name__ == '__main__':
   main()
-
-

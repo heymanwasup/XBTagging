@@ -336,7 +336,7 @@ def mkdir(path):
   if not os.path.isdir(path):
     res = commands.getstatusoutput('mkdir -p %s'%(path)) 
     print res
-    if not res[0]:
+    if res[0]:
       raise IOError(res[1])
 
 def DumpToJson(data,f=sys.stdout):
