@@ -141,10 +141,15 @@ class TemplateHist(object):
       self.vals = list(vals)
       if errs!=None:
         self.errs = list(errs)
+    if type(self).always_report:
+      good,verbose = self.Report()
+      if not good:
+        print 'Error in init hist',verbose
     
   def __iter__(self):
     self.current = 0
     return self
+
   def next(self):
     if self.current==type(self).nbins:
       raise StopIteration
@@ -167,12 +172,9 @@ class TemplateHist(object):
     else:
       return type(self).altHist
 
-    if type(self).always_report:
-      good,verbose = self.Report()
-      if not good:
-        print 'Error in init hist',verbose
   
   def Report(self):   
+    warnings = True,''
     if type(self).do_warnings:
       warnings = self.Warnings()
     if type(self).do_gurantee:
@@ -205,7 +207,7 @@ class TemplateHist(object):
     pass
 
   def Warnings(self):
-    pass
+    return True,''
 
   def Add(self,other):
     if not self.IsSame(other):
@@ -242,7 +244,9 @@ class TemplateHist(object):
   def __pow__(self,n):
     return type(self)(vals=map(lambda x:x**n,self.vals))
   def sqrt(self):
-    return type(self)(vals=map(lambda x:math.sqrt,self.vals))
+    return type(self)(vals=map(math.sqrt,self.vals))
+  def abs(self):
+    return type(self)(vals=map(lambda x:abs(x),self.vals))
 
 class CopyParameters(object):
   def __init__(self,types=[dict,list]):

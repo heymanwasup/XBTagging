@@ -75,8 +75,9 @@ class Caliber(object):
   def Initialize(self):
     self.file      = R.TFile(self._input)
     self._binnings = array.array('d',self._binnings)
-    self.Hist = GetHistClass('Raw',len(self._binnings)-1)
+    self.HistR = GetHistClass('Raw',len(self._binnings)-1)
     self.HistD = GetHistClass('Dish',len(self._binnings)-1)
+    self.HistE = GetHistClass('Error',len(self._binnings)-1)
 
     self.init_io()
     self.init_environment()
@@ -143,9 +144,9 @@ class Caliber(object):
   def init_wrapFoos(self):
     self.isHist = lambda hist : True if hist.__doc__ == '__MetaHistogram__' else False
     f = lambda foo,cache,Hist:setattr(self,foo,self.LoadFromCache(cache,Hist)(getattr(self,foo))) 
-    f('GetRaw','raw',self.Hist)  
-    f('GetRawScales','raw_scales',self.Hist)
-    f('GetRawVariations','raw_variations',self.Hist)
+    f('GetRaw','raw',self.HistR)  
+    f('GetRawScales','raw_scales',self.HistR)
+    f('GetRawVariations','raw_variations',self.HistR)
 
 
   def LoadingCfg(self):
@@ -302,11 +303,11 @@ class Caliber(object):
     tt = entry['tt']
     
     nt = ALG().Reduce(
-        lambda obj:True if isinstance(obj,self.Hist) else False,
+        lambda obj:True if isinstance(obj,self.HistR) else False,
         operator.add,
         [entry[key] for key in ntKeys])
-    self.Hist.altHist = self.HistD
-    I = self.HistD(vals=[1]*self.Hist.nbins)
+    self.HistR.altHist = self.HistD
+    I = self.HistD(vals=[1]*self.HistR.nbins)
     dish = {}
     dish['f_tb'] = tt['PbT']/(tt['PbT']+tt['PjT'])
     dish['e_nb'] = tt['PjP']/tt['PjT']
@@ -314,7 +315,7 @@ class Caliber(object):
     dish['e_tt'] = (dt['PxP']-nt['PxP'])/(dt['PxT']-nt['PxT'])
     dish['e_dt'] = (dish['e_tt']-dish['e_nb']*(I-dish['f_tb']))/dish['f_tb']
     dish['sf'] = dish['e_dt']/dish['e_mc']
-    self.Hist.altHist = None
+    self.HistR.altHist = None
     return dish
 
   def LoadNominal(self,raw): 
@@ -356,9 +357,13 @@ class Caliber(object):
     for var,entries in raw_var.iteritems():
       sam_down = toolkit.MergeDict({'data':raw_data},entries[0])
       sam_up   = toolkit.MergeDict({'data':raw_data},entries[1])
-      dish_up = self.Cook(sam_up)
-      dish_down = self.Cook(sam_down)
-      variations[var] = [dish_down,dish_up]
+      try:
+        dish_up = self.Cook(sam_up)
+        dish_down = self.Cook(sam_down)
+        variations[var] = [dish_down,dish_up]
+      except ValueError:
+        self.FBIWarning ('%s is empty,skip it'%(var))
+        continue
     return variations
 
   def CookRandom(self,r,orig):
@@ -369,11 +374,6 @@ class Caliber(object):
 
       ratio = [ float(pas[n])/tot[n] if tot[n]!=0 else 0 for n in range(len(pas)) ]
       p = lambda x:list(map(lambda y:'{0:.3f}'.format(y),x))
-      '''
-      print 'tot',p(tot)
-      print 'pas',p(pas)
-      print 'rrr',p(ratio)
-      '''
       paserr = list(map(lambda x,y:x*math.sqrt(y*(1-y)),toterr,ratio))
       Rtot = list(map(gaus,tot,toterr))
       Rpas = list(map(lambda x,y,z:gaus(x*y,z),Rtot,ratio,paserr))
@@ -390,7 +390,7 @@ class Caliber(object):
         pas, paserr = entries[kpas].vals, entries[kpas].errs
 
         Rtot, Rpas = walker(tot,pas,toterr,paserr)
-        Rentries[ktot], Rentries[kpas] = self.Hist(vals=Rtot),self.Hist(vals=Rpas)
+        Rentries[ktot], Rentries[kpas] = self.HistR(vals=Rtot),self.HistR(vals=Rpas)
       return Rentries
     R_raw_dt = {}
     R_raw_mc = {}
@@ -406,13 +406,14 @@ class Caliber(object):
     return self.Cook(R_dt),self.Cook(R_mc)
 
   def ErrorStat(self,raw):
+    self.HistD.do_assert = False 
     isHist = lambda hist : True if hist.__doc__ == '__MetaHistogram__' else False
     emptyH = lambda hist : type(hist)(vals=[0]*type(hist).nbins)
-    emptyD = lambda data : self.Cook(ALG().Map(isHist,emptyH,data))
+    emptyD = lambda data : ALG().Map(isHist,emptyH,self.Cook(data))
     add    = lambda x,y : ALG().Map(isHist,lambda x,y:x+y/self._nToys,x,y)
-    div    = lambda x,y : ALG().Map(isHist,lambda _x:_x/y,x)
+    sub    = lambda x,y : ALG().Map(isHist,operator.sub,x,y)
     square = lambda x : ALG().Map(isHist,lambda x:x**2,x)
-    sqrt   = lambda x : ALG().Map(isHist,lambda x:x.sqrt(),x)
+    sqt   = lambda x : ALG().Map(isHist,lambda x:x.sqrt(),x)
     r = R.TRandom3() 
     m1_mc = emptyD(raw) 
     m2_mc = emptyD(raw) 
@@ -425,14 +426,17 @@ class Caliber(object):
       m2_dt,  m2_mc  = add(m2_dt,Rm2_dt), add(m2_mc,Rm2_mc) 
     m1_mc_pow = square(m1_mc)
     m1_dt_pow = square(m1_dt)
-    stat_dt   = sqrt(div(m2_dt,m1_dt_pow))
-    stat_mc   = sqrt(div(m2_mc,m1_mc_pow))
+
+    stat_dt   = sqt(sub(m2_dt,m1_dt_pow))
+    stat_mc   = sqt(sub(m2_mc,m1_mc_pow))
+
     stats     = {'data stats':stat_dt, 'mc stats':stat_mc}
+    self.HistD.do_assert = True
     return stats
       
   def GetRawEntries(self,fmt,keys,samples,scale):
     keys.update(self.cat_itm)
-    hist = self.Hist()
+    hist = self.HistR()
     entries = []
     for sample in samples:
       keys['sample'] = sample
@@ -446,7 +450,7 @@ class Caliber(object):
       else:
         if self._rebinning:
           th1 = th1.Rebin(len(self._binnings)-1,'',self._binnings)
-        hist_temp = self.Hist(th1)
+        hist_temp = self.HistR(th1)
         hist_temp.Scale(hsf)
         hist.Add(hist_temp)
     status, verbose = hist.Report()    
@@ -493,38 +497,38 @@ class Caliber(object):
 
   def ErrorAlter(self,dishes):
     isHist = lambda hist : True if hist.__doc__ == '__MetaHistogram__' else False
+    self.HistD.altHist = self.HistE
     errorAlter = {}
     for name,entries in dishes.iteritems():
-      errorAlter[name] = ALG().Map(isHist,lambda x,y:((x-y)/2).Abs(),*entries)
+      errorAlter[name] = ALG().Map(isHist,lambda x,y:((x-y)/2).abs(),*entries)
+    self.HistD.altHist = None
     return errorAlter
 
-  def DumpResults(results,err_stat,err_mod,err_scal,err_var):
+  def DumpResults(self,results,err_stat,err_mod,err_scal,err_var):
     def dump_err(data,errs,key):
       for name in errs.keys():
-        data[key][name] = errs[name][key]
+        data[key][name] = errs[name][key].vals
     keys = results.keys()
     data = {} 
-    for key in keys():
+    for key in keys:
       data[key] = {}
-      data[key]['nominal'] = results[key]
+      data[key]['nominal'] = results[key].vals
       dump_err(data,err_stat,key)
       dump_err(data,err_mod,key)
       dump_err(data,err_scal,key)
       dump_err(data,err_var,key)
-    with open('%s/output.json'%(self.out_dir),'w') as f:
+    with open('%s/output_%s.json'%(self.out_dir,self.cat_str),'w') as f:
+      for d in data:
+        for _d in data[d]:
+          pass
       toolkit.DumpToJson(data,f)
-    
-     
-     
-
-
       
   def LoadFromCache(self,name,Hist):
     json_name = '%s/%s___%s.json'%(self.cache_dir,self._rtag,name)
     def Wraper(fun): 
       @functools.wraps(fun)
       def newFun(*args,**kw):
-        if self._loadCache or not os.path.isfile(json_name):
+        if not self._loadCache or not os.path.isfile(json_name):
           res_h = fun(*args,**kw)
           res_j = self.JsonToHist(res_h,Hist,inverse=True)
           with open(json_name,'w') as f:
@@ -575,42 +579,50 @@ def GetHistClass(name,nbins):
   def Gurantee_dish(self):
     self.vals[0], self.errs[0] = 0, 0
     for n in range(1,type(self).nbins):
-      if math.isnan(self.vals[n]):
+      if math.isnan(self.vals[n]) or self.vals[n]<0:
         self.vals[n] = 0
   def Assert_dish(self):
     isEmpty,verbose = self.IsEmpty()
-    assert not isEmpty, verbose
-    for val in self.vals:
-      assert not val<0., 'negative value! %s'%self.vals.__str__()
+    if isEmpty:
+      raise ValueError("is empty")
   def Warnings_dish(self):
     good = True
     for n in range(1,type(self).nbins):
-      good &= (self.vals[n]>0.) and (math.isnan(vals[n]))
-    return good,' 0/nan founded in bins',self.vals.__str__()
+      good &= (self.vals[n]>0.) and (not math.isnan(self.vals[n])) and (not self.vals[n]<0)
+    return good,' 0 or nan or negative founded %s'%self.vals.__str__()
     
 
-  attrs = {
+  report_raw = {
     'nbins'         : nbins ,
     'do_gurantee'   : True,
     'do_warnings'   : True,
     'do_assert'     : True,
-  }
-  report_raw = {
-    'report_always' : False,
+    'always_report' : False,
     'Gurantee'      : Gurantee_raw,
     'Assert'        : Assert_raw,
     'Warnings'      : Warnings_raw,
   }
   report_dish = {
-    'report_always' : True,
+    'nbins'         : nbins ,
+    'do_gurantee'   : True,
+    'do_warnings'   : False,
+    'do_assert'     : True,
+    'always_report' : True,
     'Gurantee'      : Gurantee_dish,
     'Assert'        : Assert_dish,
     'Warnings'      : Warnings_dish,
   }
+  report_error = {
+    'nbins'         : nbins ,
+    'always_report' : False,
+  }
+ 
   if name == 'Dish':
-    Hist = toolkit.FooCopyClass(name,toolkit.TemplateHist,new_attrs=toolkit.MergeDict(attrs,report_raw))
+    Hist = toolkit.FooCopyClass(name,toolkit.TemplateHist,new_attrs=report_dish)
   elif name == 'Raw':
-    Hist = toolkit.FooCopyClass(name,toolkit.TemplateHist,new_attrs=toolkit.MergeDict(attrs,report_raw))
+    Hist = toolkit.FooCopyClass(name,toolkit.TemplateHist,new_attrs=report_raw)
+  elif name == 'Error':
+    Hist = toolkit.FooCopyClass(name,toolkit.TemplateHist,new_attrs=report_error)
   else:
     raise ValueError('name should be Dish or Raw, {0:} got'.format(name))
   return Hist
