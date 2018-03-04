@@ -60,10 +60,14 @@ class ALG(object):
     self.smartMap(stop,alg,result,*args)
     return result
 
-  def Reduce(self,stop,bi_alg,args):
+  def Reduce(self,stop,bi_alg,args,start=None):
     if len(args)<2:
       raise ValueError('at least two args needed for Reduce')
-    wraper = lambda alg : lambda *atoms : reduce(alg,atoms)
+    if start != None:
+      wraper = lambda alg : lambda *atoms : reduce(alg,atoms,start)
+    else:
+      wraper = lambda alg : lambda *atoms : reduce(alg,atoms)
+
     alg = wraper(bi_alg)
     res = self.Map(stop,alg,*args)
     return res
@@ -384,6 +388,30 @@ def InverseFormat(fmt,res):
   return dict(zip(keys,values))
 
 
+def GetVarsList(rfile,Pnominal,Pvars):
+  Rvars      = re.compile(Pvars)
+  Rnominal  = re.compile(Pnominal)
+
+  Vars = {}
+  for key in rfile.GetListOfKeys():
+    obj      = key.ReadObj()
+    obj_name = obj.GetName()
+    cls_name = obj.ClassName()
+
+    if Rnominal.match(obj_name) \
+      or (cls_name.find('TDirectory')==-1) \
+      or (obj_name.find('SysLUMI')!=-1):
+      continue
+
+    var = Rvars.split(obj_name)[0]
+    if var in Vars:
+      Vars[var].append(obj_name)
+    else:
+      Vars[var] = [obj_name]
+  for var in Vars: 
+    if len(Vars[var])==1:
+      Vars[var].append(Pnominal)
+  return Vars
   
 def GetVarsList(rfile,Pnominal,Pvars):
   Rvars      = re.compile(Pvars)

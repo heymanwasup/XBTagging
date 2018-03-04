@@ -44,6 +44,14 @@ class RetrieveEfficiency(object):
     cats   = cm['cats'][sp['cats']]
     binnings = cm['binnings'][sp['binnings']]
     cats.update(sp.pop('cats_add',{}))
+    nToys = sp['nToys']
+    rebinning = sp['rebinning']
+    jet = sp['jet']
+    loadFromJson = sp['loadFromJson']
+    onlyNominal = sp['onlyNominal']
+    rtag = sp['rtag'] 
+    inputFile = sp['inputFile']  
+    outputFile = sp['outputFile']
 
     config = {
       'samples_register' : samples_register, 
@@ -54,12 +62,15 @@ class RetrieveEfficiency(object):
       'data'             : data,
       'cats'             : cats,  
       'binnings'         : binnings,
+      'nToys'            : nToys,
+      'rebinning'        : rebinning,
+      'jet'              : jet,
+      'loadFromJson'     : loadFromJson,
+      'onlyNominal'      : onlyNominal,
+      'rtag'             : rtag,
+      'inputFile'        : inputFile,
+      'outputFile'       : outputFile,
     }
-
-    sp_keys = set(sp.keys()) - set(cm.keys())
-    sp_dict = {key:copy.deepcopy(sp[key]) for key in sp_keys}
-    config.update(sp_dict)
-    #s_config = json.dumps(config,indent=4,sort_keys=True)
     
     return config
 
@@ -72,7 +83,7 @@ class Caliber(object):
 
 
   def Initialize(self):
-    self.file      = R.TFile(self._input)
+    self.file      = R.TFile(self._inputFile)
     self._binnings = array.array('d',self._binnings)
     self.HistR = GetHistClass('Raw',len(self._binnings)-1)
     self.HistD = GetHistClass('Dish',len(self._binnings)-1)
@@ -101,12 +112,12 @@ class Caliber(object):
 #    self.STDOUT     = PrintToFd(1,'STDOUT')
       
   def init_environment(self):
-    self.ftag      = toolkit.GetHashFast(self._input)[::2]
+    self.ftag      = toolkit.GetHashFast(self._inputFile)[::2]
     hasher = hashlib.md5()
     hasher.update(self.cfg_str)
     self.ctag = hasher.hexdigest()[::4] 
     self.cache_dir = '%s/cache/%s/'%(self.wk_dir,self.ftag)  
-    self.out_dir   = os.path.join(self.wk_dir, self._output,self._rtag)
+    self.out_dir   = os.path.join(self.wk_dir, self._outputFile,self._rtag)
     toolkit.mkdir(self.cache_dir)
     toolkit.mkdir(self.out_dir)
     cfg_json = '%s/config_%s.json'%(self.out_dir,self._rtag)
@@ -114,7 +125,7 @@ class Caliber(object):
       f.write(self.cfg_str)
 
   def init_varList(self):
-    if not self._nominal:
+    if not self._onlyNominal:
       vars_json = '%s/variations.json'%(self.out_dir)
       if not os.path.isfile(vars_json):
         data = Caliber.GetVarsList(self.file,
@@ -134,7 +145,6 @@ class Caliber(object):
       if 'keys' in scale:
         for key,regexp in scale['keys'].iteritems():
           scale['keys'][key] = re.compile(regexp)
-
 
   def init_samples(self):
     self.nominal_samples = { sam:{name:self._samples_register[sam][name]} \
@@ -231,7 +241,7 @@ class Caliber(object):
     return res
 
   def GetRawVariations(self):
-    if self._nominal:
+    if self._onlyNominal:
       return {}
     fmt  = self._format['variation']['hist']
     samples = self.nominal_samples
@@ -540,33 +550,6 @@ class Caliber(object):
       return newFun
     return Wraper
 
-  @staticmethod
-  @toolkit.TimeCalculator(isDebug) 
-  def GetVarsList(rfile,Pnominal,Pvars):
-    Rvars      = re.compile(Pvars)
-    Rnominal  = re.compile(Pnominal)
-
-    Vars = {}
-    for key in rfile.GetListOfKeys():
-      obj      = key.ReadObj()
-      obj_name = obj.GetName()
-      cls_name = obj.ClassName()
-
-      if Rnominal.match(obj_name) \
-        or (cls_name.find('TDirectory')==-1) \
-        or (obj_name.find('SysLUMI')!=-1):
-        continue
-
-      var = Rvars.split(obj_name)[0]
-      if var in Vars:
-        Vars[var].append(obj_name)
-      else:
-        Vars[var] = [obj_name]
-    for var in Vars: 
-      if len(Vars[var])==1:
-        Vars[var].append(Pnominal)
-    return Vars
-
 def GetHistClass(name,nbins):
   def Gurantee_raw(self):
     self.vals[0], self.errs[0] = 0, 0
@@ -627,7 +610,6 @@ def GetHistClass(name,nbins):
     raise ValueError('histogram name not found: {0:}'.format(name))
   return Hist
 
-  
 def main():
   worker = RetrieveEfficiency('./XBTagging/data/TPConfig.py')
   worker.Work()

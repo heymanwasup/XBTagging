@@ -1,17 +1,16 @@
 class Settings(object):
   def __init__(self):
     self.rtag = 'test'
-    self.input  = './input/test.root'
-    self.output = './output/'
+    self.inputFile  = './input/test.root'
+    self.outputFile = './output/'
     self.jet    = 'CalJet'
 
-
-    self.nToys      = 10000
-    self.loadCache  = False
-    self.binnings   = 'CalNew'
-    self.nominal    = False
-    self.rebinning  = False
-    self.format = 'r21a1'
+    self.nToys        = 10000
+    self.loadFromJson = True
+    self.binnings     = 'CalNew'
+    self.onlyNominal      = False
+    self.rebinning    = False
+    self.format       = 'r21a1'
 
     self.cats     = 'ptCalib'
     self.cats_add = {
@@ -28,7 +27,6 @@ class Settings(object):
     } 
     
     self.data = 'nominal'
-  
 
     self.modellings = {
       #'tt'      : 'py8',
