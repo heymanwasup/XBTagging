@@ -6,13 +6,14 @@ class OPts(object):
     drawopts = self.GetGeneralOpts()
 
     ratio_opts = self.GetRatioOpts()
-    data_opts = self.GetDataOpts()
+#    data_opts = self.GetDataOpts()
+    data_opts = self.GetMCHOpts()
     mch_opts = self.GetMCHOpts()
     errb_opts = self.GetErrbandOpts()
     uppad = self.GetUpPadOpts()
     downpad = self.GetDownPadOpts()
     errBandnew = self.GetErrBandNew()
-    
+  
     drawopts['ratioHist'] = ratio_opts
     drawopts['dataHist'] = data_opts 
     drawopts['mcHStack'] = mch_opts
@@ -20,8 +21,12 @@ class OPts(object):
     drawopts['upPadSettings'] = uppad 
     drawopts['downPadSettings'] = downpad
     drawopts['errBandnew'] = errBandnew
-    drawopts['mcHStack_new'] = self.GetErrMCHStack_New()     
+    drawopts['dataHist_new'] = self.GetDataOpts_New() 
+
+    drawopts['mcHStack_new'] = self.GetErrMCHStack_New()   
+    drawopts['ratioHist_new'] = self.GetHistOpts_New()  
     self.drawopts = drawopts
+
   def GetGeneralOpts(self):
     drawopts = {
       'name':'test',
@@ -87,28 +92,6 @@ class OPts(object):
 
   def GetErrBandNew(self):
     opts = {
-      'Xaxis':{
- #       'Title':'p_{T}(jet) [GeV]',
-        'TitleSize':0.13,
-        'TitleOffset':1.2,
-        'TitleFont':42,
-        'LabelSize':0.11,
-        'LabelFont':42,
-        'LabelOffset':0.005,
-        'Ndivisions':510,
-      },
-
-      'Yaxis':{
- #       'Title':'Data/Pred.',
- #       'TitleSize':0.11,
-        'TitleOffset':0.74,
-        'TitleFont':42,
-        'LabelSize':0.08,
-        'LabelFont':42,
-        'LabelOffset':0.005,
-        'Ndivisions':50104,
-      },
-
       'MarkerSize':0,
       'MarkerColor':3,
       'LineWidth':1,
@@ -138,14 +121,9 @@ class OPts(object):
         'LabelSize':0.06,
         'LabelFont':42,
         'LabelOffset':0.005,
-        'Ndivisions':510,
+        'Ndivisions':505,
       },
 
-      'MarkerSize':0,
-      'MarkerColor':3,
-      'LineWidth':1,
-      'FillStyle':3002,
-      'FillColor':3,
 
 
     }
@@ -158,6 +136,7 @@ class OPts(object):
       'xTitle':'',
       'xLabelSize':0.04,
       'xLabelOffset':999,
+      'xNdiv' : 510,
 
       'yTitle':'Jets / 10 GeV',
       'yTitleSize':0.06,
@@ -240,12 +219,36 @@ class OPts(object):
         'Ndivisions':50104,
       },
 
-      'MarkerSize':0,
-      'MarkerColor':3,
-      'LineWidth':1,
-      'FillStyle':3002,
-      'FillColor':3,
     }
+    return opts
+
+  def GetDataOpts_New(self):
+    opts = {
+      'Xaxis':{
+        'Title':'',
+        'TitleSize':0.13,
+        'TitleOffset':1.2,
+        'TitleFont':42,
+        'LabelSize':0.11,
+        'LabelFont':42,
+        'LabelOffset':0.005,
+        'Ndivisions':510,
+      },
+
+      'Yaxis':{
+        'Title':'Jets / 10 GeV',
+        'TitleSize':0.06,
+        'TitleOffset':1.35,
+        'TitleFont':42,
+        'LabelSize':0.06,
+        'LabelFont':42,
+        'LabelOffset':0.005,
+        'Ndivisions':510,
+      },
+
+      'MarkerSize':0.8,
+    }
+    return opts
 
   def Init(self):
     self.hist_opts  = self.GetHistOpts()

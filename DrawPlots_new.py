@@ -11,6 +11,8 @@ import copy
 R.gROOT.SetBatch(True)
 #retrieve histograms from root file
 #data, mc, errband 
+draw_data = False
+deco_new = True
 
 class RetrieveHists(object):
   def __init__(self,tfile,dataHistName,mcHistsName,systsName={},xbins=None):
@@ -25,7 +27,7 @@ class RetrieveHists(object):
     for n in range(1,N+1):
       c = hist.GetBinContent(n)
       e = hist.GetBinError(n)
-      print '{0:10}   {1:5.2f} +-  {2:3.2f}'.format(n,c,e)
+      print '{0:10}   {1:5.2f} +-  {2:3.5f}'.format(n,c,e)
 
   def PrepareHists(self): 
     #get data histogram
@@ -191,22 +193,58 @@ class DrawControlPlots(object):
     P['pad_do'].Draw()
 
     P['pad_up'].cd()
-    P['hs'].Draw('HIST')
-    P['leg_up'].Draw('same')
+
+    if draw_data:
+      #self.DecorateObjectNew(P['dataHist'],self.Opts['mcHStack_new'])
+
+      if deco_new:
+        pass
+        self.DecorateObjectNew(P['dataHist'],self.Opts['mcHStack_new'])
+      else:
+        pass
+        self.DecorateHist(P['dataHist'],self.Opts['mcHStack'])
+
+
+      P['dataHist'].Draw('e')
+      P['hs'].Draw('HIST SAME')
+      print 'minmimum and maximum for THStack and datahist'
+      #print P['hs'].GetMaximum()
+      #print P['hs'].GetMinimum()      
+      print P['dataHist'].GetMaximum()
+      print P['dataHist'].GetMinimum()
+    else:
+
+      P['hs'].Draw('HIST')
+      if deco_new:
+        self.DecorateObjectNew(P['hs'],self.Opts['mcHStack_new'])
+      else:
+        self.DecorateHist(P['hs'],self.Opts['mcHStack'])
+      self.DecorateHist(P['hs'],self.Opts['mcHStack'])
+      P['dataHist'].Draw('esame')
+      print 'minmimum and maximum for THStack and datahist'
+      print P['hs'].GetMaximum()
+      print P['hs'].GetMinimum()      
+      print P['dataHist'].GetMaximum()
+      print P['dataHist'].GetMinimum()
+
+
 
     P['leg_up'].SetTextFont(62)
-    self.DecorateHist(P['hs'],self.Opts['mcHStack'])
-    P['dataHist'].Draw('esame')
+    P['leg_up'].Draw('same')
+    #self.DecorateHist(P['hs'],self.Opts['mcHStack'])
+    #P['dataHist'].Draw('esame')
+
     for name,txts in self.Texts.iteritems():
       self.DrawText(*txts)
+
+
 
     P['pad_do'].cd()
     P['leg_do'].SetTextFont(62)
 
     P['ratio'].GetYaxis().SetRangeUser(0.5,1.5)
     P['ratio'].Draw('same')
-#    P['errBand'].SetLineWidth(1)
-#    P['errBand'].SetLineWidth(1)
+
     P['errBand'].Draw('E2same')
     print '\n\nratio'
     self.PrintHist(P['ratio'])
@@ -222,13 +260,14 @@ class DrawControlPlots(object):
     for n in range(1,N+1):
       c = hist.GetBinContent(n)
       e = hist.GetBinError(n)
-      print '{0:10}   {1:5.2f} +-  {2:3.2f}'.format(n,c,e)
+      print '{0:10}   {1:5.2f} +-  {2:3.5f}'.format(n,c,e)
 
   def GetPad(self,name):
     opts = self.Opts
     pad = R.TPad(name,name,*opts['%sPosition'%name])  
     for key,value in opts['%sSettings'%name].iteritems():
       getattr(pad,key)(value)
+
     return pad
 
   def ProcessAndPrepareHist(self,dataHist,mcHists,errBand):
@@ -356,6 +395,10 @@ class DrawControlPlots(object):
           e_new = e/(w/funit) 
           hist.SetBinContent(n+1,c_new)
           hist.SetBinError(n+1,e_new)
+
+
+
+
            
     #mc sum hist
     sum_start = mc_hists[0].Clone()
@@ -385,6 +428,12 @@ class DrawControlPlots(object):
       xMax = dataHist.GetBinLowEdge(nBins) + dataHist.GetBinWidth(nBins)
       xRange = [xMin,xMax]
       self.Opts['xRange'] = xRange
+    dataHist.SetMaximum(self.Opts['yRange'][1])
+    dataHist.SetMinimum(self.Opts['yRange'][0])
+    print 'max min for data'
+    print self.Opts['yRange']
+
+
     
     ALG().Map(FooIsHist,FooFooSetXRange(xRange),all_hists)
 
@@ -403,6 +452,8 @@ class DrawControlPlots(object):
 
     thstack.SetMaximum(self.Opts['yRange'][1])
     thstack.SetMinimum(self.Opts['yRange'][0])
+    print 'max min for thstack'
+    print self.Opts['yRange']
 #thstack.GetXaxis().SetRangeUser(*self.Opts['xRange'])
     return thstack
 
@@ -427,7 +478,7 @@ class DrawControlPlots(object):
     xaxis.SetTitleSize(opts['xTitleSize'])
     xaxis.SetTitleOffset(opts['xTitleOffset'])
     xaxis.SetTitleFont(opts['xTitleFont'])
-    xaxis.SetLabelSize(opts['xLabelSize']);
+    xaxis.SetLabelSize(opts['xLabelSize'])
     xaxis.SetLabelFont(opts['xLabelFont']);
     xaxis.SetLabelOffset(opts['xLabelOffset']);
     xaxis.SetNdivisions(opts['xNdiv'])
@@ -456,16 +507,21 @@ class DrawControlPlots(object):
   def DecorateHists(self,dataHist,hs,ratio,errBand):
 
     optsD = self.Opts['dataHist']
+    optsDnew = self.Opts['dataHist_new']
     optsM = self.Opts['mcHStack']
     optsR = self.Opts['ratioHist']
     optsB = self.Opts['errBand']
     optsBnew = self.Opts['errBandnew']
+    optsRnew = self.Opts['ratioHist_new']
 
-    #self.DecorateHist(dataHist,optsD)
-#DecorateHist(hs,optsM )
-    #self.DecorateObjectNew(errBand,optsBnew)
-    self.DecorateHist(ratio,optsR)
-    #self.DecorateHist(errBand,optsB)
+    print 'optsD'
+    print optsD
+
+    print '\noptsDnew'
+    print optsDnew
+    self.DecorateHist(dataHist,optsD)
+    #self.DecorateObjectNew(dataHist,optsDnew)
+    self.DecorateObjectNew(ratio,optsRnew)
     self.DecorateObjectNew(errBand,optsBnew)
 
   def GetCanvas(self):
