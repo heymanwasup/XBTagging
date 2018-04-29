@@ -13,6 +13,32 @@ import numpy as np
 
 
 def main():
+  class A(object):
+    def __init__(self,a):
+      self.a = a
+    def fun(self,b):
+      print self.a+b
+
+  a = A(100)
+  f = getattr(a,'fun')
+  f(10)
+
+  b = A(10)
+  f = getattr(b,'fun')
+  f(10)
+
+
+
+def FooExec():
+  b = {}
+  exec('b[1]=10')
+  return b
+
+def testInnerExec():
+  print FooExec()
+  
+
+def TestIter():
   class Counter:
     def __init__(self, low, high):
       self.low = low

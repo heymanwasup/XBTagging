@@ -1,3 +1,8 @@
+'''
+Classes and functions designed for general purpose.
+Only dependent on built-in python packages
+'''
+
 import hashlib
 import math
 import functools
@@ -33,31 +38,32 @@ class ALG(object):
         self.smartMap(stop,alg,to_entry,*entries)
 
   def isIsomorphism(self,A,B,stop):
+    if stop(A) and stop(B):
+      return True
     if not isinstance(A,type(B))\
       or not (isinstance(A,list) or isinstance(A,dict)):
       return False
+    
     isomorphism = True
     for itm in type(self).iters(A):
       a = type(self).getter(A,itm)
       b = type(self).getter(B,itm)
-      if stop(a) and stop(b):
-        continue
-      elif stop(a) or stop(b):
-        return False
-      else:
-        if not self.isIsomorphism(a,b,stop):
-          return False
+      isomorphism &= self.isIsomorphism(a,b,stop)
     return isomorphism
     
   def Map(self,stop,alg,*args):
+    
     if len(args)>1:
       isIso = True
       for n in range(len(args)-1):
         isIso &= self.isIsomorphism(args[n],args[n+1],stop)
       if not isIso:
         raise ValueError('not all ISO')
-    result = type(args[0])()
-    self.smartMap(stop,alg,result,*args)
+    if stop(args[0]):
+      result = alg(*args)
+    else:
+      result = type(args[0])()
+      self.smartMap(stop,alg,result,*args)
     return result
 
   def Reduce(self,stop,bi_alg,args,start=None):
@@ -67,15 +73,9 @@ class ALG(object):
       wraper = lambda alg : lambda *atoms : reduce(alg,atoms,start)
     else:
       wraper = lambda alg : lambda *atoms : reduce(alg,atoms)
-
     alg = wraper(bi_alg)
     res = self.Map(stop,alg,*args)
     return res
-
-def MergeDict(A,B):
-  Res = copy(A)
-  Res.update(B)
-  return Res
 
 class PrintPriority(object):
   priorities = []
@@ -101,6 +101,9 @@ class PrintPriority(object):
 
 
 def json_load(file_handle):
+    if isinstance(file_handle,str):
+        file_handle = open(file_handle,'r')
+          
     return _byteify(
         json.load(file_handle, object_hook=_byteify),
         ignore_dicts=True
@@ -124,133 +127,6 @@ def _byteify(data, ignore_dicts = False):
         }
     return data
 
-class TemplateHist(object):
-  __doc__ = '__MetaHistogram__'
-
-  nbins = None
-  default_val = 0
-  default_err = 0
-  do_gurantee = False  
-  do_assert = False
-  do_warnings = False
-  always_report = False
-  altHist = None
-  
-  def __init__(self,th1=None,vals=None,errs=None):
-    self.SetDefault()
-    if th1!=None:
-      self.vals = [ th1.GetBinContent(n+1) for n in range(self.nbins) ]
-      self.errs = [ th1.GetBinError(n+1)   for n in range(self.nbins) ]
-    elif vals!=None:
-      self.vals = list(vals)
-      if errs!=None:
-        self.errs = list(errs)
-    if type(self).always_report:
-      good,verbose = self.Report()
-      if not good:
-        print 'Error in init hist',verbose
-    
-  def __iter__(self):
-    self.current = 0
-    return self
-
-  def next(self):
-    if self.current==type(self).nbins:
-      raise StopIteration
-    else:
-      self.current += 1
-      return (self.vals[current-1],self.errs[current-1])
-
-
-
-  def IsSame(self,other):
-    if self.__doc__ == other.__doc__:
-      res = True
-    else:
-      res = False
-    return res
-
-  def AltHist(self):
-    if not self.IsSame(type(self).altHist):
-      return type(self)
-    else:
-      return type(self).altHist
-
-  
-  def Report(self):   
-    warnings = True,''
-    if type(self).do_warnings:
-      warnings = self.Warnings()
-    if type(self).do_gurantee:
-      self.Gurantee()
-    if type(self).do_assert:
-      self.Assert()
-    return warnings
-
-  def SetDefault(self):
-    self.vals   = [type(self).default_val for n in range(type(self).nbins)]
-    self.errs   = [type(self).default_err for n in range(type(self).nbins)]
-
-  def IsEmpty(self):
-    isEmpty = True
-    isNan   = True
-    for n in range(1,type(self).nbins):
-      isEmpty &= (self.vals[n]==type(self).default_val) or (math.isnan(self.vals[n]))
-      isNan &= math.isnan(self.vals[n])
-    verbose = ''  
-    if isEmpty:
-      verbose += 'Empty Histogram!'
-      if isNan:
-        verbose += ' with Nan {0:}'.format(self.vals.__str__())
-    return isEmpty,verbose
-
-  def Assert(self):
-    pass
-
-  def Gurantee(self):
-    pass
-
-  def Warnings(self):
-    return True,''
-
-  def Add(self,other):
-    if not self.IsSame(other):
-      _other = type(self)(th1=other)
-    else:
-      _other = other
-    self.vals = list(map(operator.add,self.vals,_other.vals))
-    self.errs = list(map(lambda x,y:math.sqrt(x**2+y**2),self.errs,_other.errs))
-
-  def Scale(self,sf=1.):
-    self.vals = list(map(lambda x:x*sf,self.vals))
-  def Operation(self,other,operator_val):
-    _other_vals = other.vals if self.IsSame(other) else other
-    return self.AltHist()(vals=map(operator_val,self.vals,_other_vals))
-  
- 
-  def __str__(self):
-    return zip(self.vals,self.errs).__str__()
-  def __repr__(self):
-    return self.__str__()
-  
-  def __add__(self,other):
-    return self.Operation(other,operator.add)
-  def __sub__(self,other):
-    return self.Operation(other,operator.sub)
-  def __mul__(self,other):
-    return self.Operation(other,operator.mul)
-  def __div__(self,other):
-    try:
-      iter(other)
-    except TypeError:
-      other = [other]*type(self).nbins
-    return self.Operation(other,lambda x,y:x/y if y!=0 else float('nan'))
-  def __pow__(self,n):
-    return type(self)(vals=map(lambda x:x**n,self.vals))
-  def sqrt(self):
-    return type(self)(vals=map(math.sqrt,self.vals))
-  def abs(self):
-    return type(self)(vals=map(lambda x:abs(x),self.vals))
 
 class CopyParameters(object):
   def __init__(self,types=[dict,list]):
@@ -286,17 +162,10 @@ class TimeCalculator(object):
       return result
     return wrap
 
-
-def Decomposer(obj):
-    return {attr:getattr(obj,attr) for attr in dir(obj) if not callable(getattr(obj,attr)) and not attr.startswith('__')}
-
 def FooCopyClass(name,cls,inherits=(object,),new_attrs={}):
   attrs = vars(cls).copy()
   attrs.update(new_attrs)
-  
   return type(name,inherits,attrs)
-
-   
     
 def TimeCalculator2(isOpen=True):
   def decorator(fun):
@@ -339,7 +208,6 @@ def GetHashFast(fname):
 def mkdir(path):
   if not os.path.isdir(path):
     res = commands.getstatusoutput('mkdir -p %s'%(path)) 
-    print res
     if res[0]:
       raise IOError(res[1])
 
@@ -367,7 +235,7 @@ def PartialFormat(fmt,keys):
   for k in invariant:
     keys_used[k] = kf_map[k]   
   res = fmt.format(**keys_used)
-  print res
+  return res
   
 def InverseFormat(fmt,res):
   reg_keys = '{([^{}:]+)[^{}]*}'
@@ -387,59 +255,29 @@ def InverseFormat(fmt,res):
     values.append(temp)
   return dict(zip(keys,values))
 
+def Decomposer(obj):
+    return {attr:getattr(obj,attr) for attr in dir(obj) if not callable(getattr(obj,attr)) and not attr.startswith('__')}
 
-def GetVarsList(rfile,Pnominal,Pvars):
-  Rvars      = re.compile(Pvars)
-  Rnominal  = re.compile(Pnominal)
+def DumpClassToJson(obj,file_name):
+  dict_of_cls = Decomposer(obj)
+  with open(file_name,'w') as f:
+    DumpToJson(dict_of_cls,f)
 
-  Vars = {}
-  for key in rfile.GetListOfKeys():
-    obj      = key.ReadObj()
-    obj_name = obj.GetName()
-    cls_name = obj.ClassName()
+def MergeDict(A,B):
+  Res = copy(A)
+  Res.update(B)
+  return Res
 
-    if Rnominal.match(obj_name) \
-      or (cls_name.find('TDirectory')==-1) \
-      or (obj_name.find('SysLUMI')!=-1):
-      continue
-
-    var = Rvars.split(obj_name)[0]
-    if var in Vars:
-      Vars[var].append(obj_name)
-    else:
-      Vars[var] = [obj_name]
-  for var in Vars: 
-    if len(Vars[var])==1:
-      Vars[var].append(Pnominal)
-  return Vars
   
-def GetVarsList(rfile,Pnominal,Pvars):
-  Rvars      = re.compile(Pvars)
-  Rnominal  = re.compile(Pnominal)
-
-  Vars = {}
-  for key in rfile.GetListOfKeys():
-    obj      = key.ReadObj()
-    obj_name = obj.GetName()
-    cls_name = obj.ClassName()
-
-    if Rnominal.match(obj_name) \
-      or (cls_name.find('TDirectory')==-1) \
-      or (obj_name.find('SysLUMI')!=-1):
-      continue
-
-    var = Rvars.split(obj_name)[0]
-    if var in Vars:
-      Vars[var].append(obj_name)
-    else:
-      Vars[var] = [obj_name]
-  for var in Vars: 
-    if len(Vars[var])==1:
-      Vars[var].append(Pnominal)
-  return Vars
-
 def main():
-  PartialFormat('{a:}af{f:}{c:}',{'a':1,'c':3})
+  res = PartialFormat('{key1:},{key2}',{'key3':10})
+  print res
+  '''
+  mkdir('./data')
+  f = TFile('../input/test.root')
+  varsList = GetVarsList(f,'SysNominal',r'(.*[^_])(_+[0-9]*)(up|down)')
+  print varsList
+  '''
   
 if __name__ == '__main__':
   main()

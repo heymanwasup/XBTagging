@@ -1,85 +1,28 @@
 import sys,os,time,pickle,imp,hashlib,importlib,json,itertools,re,copy,array,functools,math,operator
 import ROOT as R
+import tools
 import toolkit
 from toolkit import ALG
 
-from data.CommonDataInterface import DataConfig
-
-
 isDebug = False
 
+'''
+Take the overall info and run info.
+Make the configuration info and feed it to Caliber.
+'''
 class RetrieveEfficiency(object):
   def __init__(self,cfg_path):
-    Settings = imp.load_source('Settings',cfg_path)
-    
-    tp_cfg = Settings.Settings()
-    cm_cfg = DataConfig()
-
-    Cfg = self.MakeConfigDict(tp_cfg,cm_cfg)
-    self.caliber = Caliber(Cfg)
+    self.caliber = Caliber(cfg_path,'./')
 
   def Work(self):
     self.caliber.Run()
 
-  def MakeConfigDict(self,sp_cfg,cm_cfg):
-    sp = toolkit.Decomposer(sp_cfg)
-    cm = toolkit.Decomposer(cm_cfg)
-
-    samples_register = {} 
-    for sample,item in sp['samples'].iteritems():
-      items = [item]
-      if sample in sp['modellings']:
-        modelling = cm['modellings'][sample][sp['modellings'][sample]]
-        for name,mod_items in modelling.iteritems():
-          items += mod_items
-      samples_register[sample] = {_item:cm['samples'][sample][_item] for _item in items}    
-    
-    modellings = { sample : cm['modellings'][sample][items] \
-      for sample,items in sp['modellings'].iteritems()}
-
-    nominals = sp['samples']
-    scales   = {name:cm['scales'][name] for name in sp['scales']}
-    fmt      = cm['format'][sp['format']]
-    data     = cm['data'][sp['data']]
-    cats   = cm['cats'][sp['cats']]
-    binnings = cm['binnings'][sp['binnings']]
-    cats.update(sp.pop('cats_add',{}))
-    nToys = sp['nToys']
-    rebinning = sp['rebinning']
-    jet = sp['jet']
-    loadFromJson = sp['loadFromJson']
-    onlyNominal = sp['onlyNominal']
-    rtag = sp['rtag'] 
-    inputFile = sp['inputFile']  
-    outputFile = sp['outputFile']
-
-    config = {
-      'samples_register' : samples_register, 
-      'nominals'         : nominals,
-      'modellings'       : modellings,
-      'scales'           : scales,
-      'format'           : fmt,
-      'data'             : data,
-      'cats'             : cats,  
-      'binnings'         : binnings,
-      'nToys'            : nToys,
-      'rebinning'        : rebinning,
-      'jet'              : jet,
-      'loadFromJson'     : loadFromJson,
-      'onlyNominal'      : onlyNominal,
-      'rtag'             : rtag,
-      'inputFile'        : inputFile,
-      'outputFile'       : outputFile,
-    }
-    
-    return config
 
 class Caliber(object):
-  def __init__(self,cfg,wk_dir='./'):
-    self.cfg_str  = json.dumps(cfg,indent=4,sort_keys=True)
+  def __init__(self,cfg_path,wk_dir='./'):
+    cfg = toolkit.json_load(cfg_path) 
+    self.LoadingCfg(cfg)
     self.wk_dir   = wk_dir
-    self.LoadingCfg()
-    self.Initialize()
 
 
   def Initialize(self):
@@ -95,6 +38,13 @@ class Caliber(object):
     self.init_scales()
     self.init_samples()
     self.init_wrapFoos()
+    self.init_iterator()
+
+  def init_iterator(self):
+    self.IterKeys = self._cats.keys()
+    self.IterItems = list(itertools.product(*[ self._cats[key] for key in self.IterKeys ]))
+    self.IterEnd = len(self.IterItems)
+    self.IterCounter = 0
 
   def init_io(self):
     def PrintToFd(fd,name):
@@ -112,23 +62,14 @@ class Caliber(object):
 #    self.STDOUT     = PrintToFd(1,'STDOUT')
       
   def init_environment(self):
-    self.ftag      = toolkit.GetHashFast(self._inputFile)[::2]
-    hasher = hashlib.md5()
-    hasher.update(self.cfg_str)
-    self.ctag = hasher.hexdigest()[::4] 
-    self.cache_dir = '%s/cache/%s/'%(self.wk_dir,self.ftag)  
-    self.out_dir   = os.path.join(self.wk_dir, self._outputFile,self._rtag)
-    toolkit.mkdir(self.cache_dir)
+    self.out_dir   = os.path.join(self.wk_dir, self._outputPath,self._rtag)
     toolkit.mkdir(self.out_dir)
-    cfg_json = '%s/config_%s.json'%(self.out_dir,self._rtag)
-    with open(cfg_json,'w') as f:
-      f.write(self.cfg_str)
 
   def init_varList(self):
     if not self._onlyNominal:
       vars_json = '%s/variations.json'%(self.out_dir)
       if not os.path.isfile(vars_json):
-        data = Caliber.GetVarsList(self.file,
+        data = toolkit.GetVarsList(self.file,
             self._format['nominal']['var'],
             self._format['variation']['var'])
         with open(vars_json,'w') as f:
@@ -158,40 +99,33 @@ class Caliber(object):
     f('GetRawVariations','raw_variations',self.HistR)
 
 
-  def LoadingCfg(self):
-    self.gene_cfg = toolkit.json_loads(self.cfg_str)
-    #toolkit.DumpToJson(self.gene_cfg) 
-
+  def LoadingCfg(self,cfg):
+    self.gene_cfg = cfg
     for key,value in self.gene_cfg.iteritems():
       setattr(self,'_%s'%key,value)
     
-    cat_keys = self._cats.keys()
-    cat_vals = (self._cats[key] for key in cat_keys)
-    cat_itms = list(itertools.product(*cat_vals))
-    
-    self.cat_keys = cat_keys
-    self.cat_itms = cat_itms
-    self.Niter = 0
+
 
   def Next(self):
-    if self.Niter == len(self.cat_itms):
+    if self.IterCounter >= self.IterEnd:
       status = False
     else:
-      cat = self.cat_itms[self.Niter]
-      self.cat_itm = dict(zip(self.cat_keys,cat))
-      self.cat_str = '_'.join(map(str,cat))
-      self.Niter += 1
+      self.CurrentItem = dict(zip(self.IterKeys,self.IterItems[self.IterCounter]))
+      self.CurrentItem_Str =  '_'.join(['{0:}_{1:}'.format(key,self.CurrentItem[key]) for key in self.IterKeys])
+      self.IterCounter += 1
       status = True
     return status
 
   def Run(self):
 #self.LoadingCfg()
 #self.Initialize()
+    self.Initialize()
 
     while self.Next():
-      print self.cat_itm
-      print self.cat_str
-#self.STDOUT(self.cat_itm, self.cat_str)
+      print self.CurrentItem
+      print self.CurrentItem_Str
+      #continue
+#self.STDOUT(self.CurrentItem, self.CurrentItem_Str)
       self.PerformTagAndProbe()
 
   def PerformTagAndProbe(self):
@@ -214,6 +148,9 @@ class Caliber(object):
     
     self.DumpResults(dish_nominal,
         err_stat,err_modellings,err_scales,err_variations)
+
+    self.DumpDishes(dish_nominal,dish_scales,dish_variations,dish_modellings)
+
 
   def GetRaw(self):
     samples = self._samples_register
@@ -444,7 +381,7 @@ class Caliber(object):
     return stats
       
   def GetRawEntries(self,fmt,keys,samples,scale):
-    keys.update(self.cat_itm)
+    keys.update(self.CurrentItem)
     hist = self.HistR()
     entries = []
     for sample in samples:
@@ -517,21 +454,35 @@ class Caliber(object):
     def dump_err(data,errs,key):
       for name in errs.keys():
         data[key][name] = errs[name][key].vals
-    keys = results.keys()
     data = {} 
-    for key in keys:
+    for key in results.keys():
       data[key] = {}
       data[key]['nominal'] = results[key].vals
       dump_err(data,err_stat,key)
       dump_err(data,err_mod,key)
       dump_err(data,err_scal,key)
       dump_err(data,err_var,key)
-    with open('%s/output_%s.json'%(self.out_dir,self.cat_str),'w') as f:
-      for d in data:
-        for _d in data[d]:
-          pass
+    with open('%s/output_%s.json'%(self.out_dir,self.CurrentItem_Str),'w') as f:
       toolkit.DumpToJson(data,f)
-      
+
+  def DumpDishes(self,nominal,scales,variations,modellings):
+    def dump_dish_err(data,dish,key):
+      for name in dish.keys():
+        data[key][name+'__down'] = dish[name][0][key].vals
+        data[key][name+'__up'] = dish[name][1][key].vals
+
+    data = {} 
+    for key in nominal.keys():
+      data[key] = {}
+      data[key]['nominal'] = nominal[key].vals
+      dump_dish_err(data,scales,key)
+      dump_dish_err(data,variations,key)
+      dump_dish_err(data,modellings,key)
+    with open('%s/variations_%s.json'%(self.out_dir,self.CurrentItem_Str),'w') as f:
+      toolkit.DumpToJson(data,f)    
+
+
+
   def LoadFromJson(self,name,Hist):
     json_name = '%s/%s.json'%(self.out_dir,name)
     def Wraper(fun): 
@@ -574,7 +525,6 @@ def GetHistClass(name,nbins):
       good &= (self.vals[n]>0.) and (not math.isnan(self.vals[n])) and (not self.vals[n]<0)
     return good,' 0 or nan or negative founded %s'%self.vals.__str__()
     
-
   report_raw = {
     'nbins'         : nbins ,
     'do_gurantee'   : True,
@@ -595,24 +545,25 @@ def GetHistClass(name,nbins):
     'Assert'        : Assert_dish,
     'Warnings'      : Warnings_dish,
   }
+  
   report_error = {
     'nbins'         : nbins ,
     'always_report' : False,
   }
  
   if name == 'Dish':
-    Hist = toolkit.FooCopyClass(name,toolkit.TemplateHist,new_attrs=report_dish)
+    Hist = toolkit.FooCopyClass(name,tools.TemplateHist,new_attrs=report_dish)
   elif name == 'Raw':
-    Hist = toolkit.FooCopyClass(name,toolkit.TemplateHist,new_attrs=report_raw)
+    Hist = toolkit.FooCopyClass(name,tools.TemplateHist,new_attrs=report_raw)
   elif name == 'Error':
-    Hist = toolkit.FooCopyClass(name,toolkit.TemplateHist,new_attrs=report_error)
+    Hist = toolkit.FooCopyClass(name,tools.TemplateHist,new_attrs=report_error)
   else:
     raise ValueError('histogram name not found: {0:}'.format(name))
   return Hist
 
 def main():
-  worker = RetrieveEfficiency('./XBTagging/data/TPConfig.py')
-  worker.Work()
- 
+  worker = RetrieveEfficiency('./data/Run_CalJet_test.json')
+  worker.Work() 
+
 if __name__ == '__main__':
   main()
