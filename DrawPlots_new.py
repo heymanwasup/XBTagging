@@ -13,12 +13,11 @@ R.gROOT.SetBatch(True)
 #data, mc, errband 
 
 class RetrieveHists(object):
-  def __init__(self,tfile,dataHistName,mcHistsName,systsName={},xbins=None):
+  def __init__(self,tfile,dataHistName,mcHistsName,systsName={}):
     self.tfile = tfile
     self.dataHistName = dataHistName 
     self.mcHistsName = mcHistsName
     self.systsName = systsName
-    self.xbins = xbins
 
   def PrintHist(self,hist):
     N = hist.GetNbinsX()
@@ -112,9 +111,7 @@ class RetrieveHists(object):
     if err==None: 
       err = [0.]*len(val)
     Nbins = hist.GetNbinsX()
-    if not ((len(val)==len(err)) and (len(val)==Nbins)):
-      print 'len of val = {0:}, len of err = {1:}, len of hist = {2}:'.format(len(val),len(err),Nbins)
-      raise ValueError('not ((len(val)==len(err)) and (len(val)==Nbins))')
+
     for n in range(Nbins):
       hist.SetBinContent(n+1,val[n])
       hist.SetBinError(n+1,err[n])

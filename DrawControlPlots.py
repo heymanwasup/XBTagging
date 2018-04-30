@@ -37,6 +37,7 @@ class MakeControlPlots(object):
     self.samples = cfg['samples_register']
     
 
+
   #entries = [[NameInLeg, NameInHist, Color],[]...]
   def SetupDraw(self,entries,is_modelling,is_variation,is_flav):
     self.entries = entries
@@ -54,9 +55,7 @@ class MakeControlPlots(object):
     syst_hist_names = self.GetSystNames(mc_fmt,mc_var_fmt)
     
     #get the histograms 
-    xbins = draw_opts['xBins']
-    hist_maker = DB.RetrieveHists(self.tfile,data_hist_name,mc_hist_names,syst_hist_names,xbins) 
-
+    hist_maker = DB.RetrieveHists(self.tfile,data_hist_name,mc_hist_names,syst_hist_names) 
     dt_hist,mc_hists,errband_hist = hist_maker.PrepareHists()
 
     mc_hists_organ = [ [entry[0],mc_hists[entry[0]],entry[2]] for entry in self.entries ]
@@ -144,10 +143,15 @@ def main():
     'Selection'   : ['#font[42]{e #mu 2 jets , #geq 1 tagged}',0.2, 0.7, 1, 0.03*1.58],
   }
 
+
   dt_fmt = 'SysNominal/{sample:}_TP_1ptag2jet_MVA100_XMu_em_xEta_PxT85CalJetPt' 
   mc_fmt = 'SysNominal/{sample:}_TP_1ptag2jet_MVA100_XMu_em_xEta_PxT85CalJetPt' 
   mc_var_fmt = '{var:}/{sample:}_TP_1ptag2jet_MVA100_XMu_em_xEta_PxT85CalJetPt_{var:}' 
 
+  is_modelling = True
+  is_variation = True
+  is_flavour_combination = False
+  
   printer = MakeControlPlots('../input/test.root','../plots/','../data/Run_CalJet_test.json')
   printer.SetupDraw(entries,True,True,False)
   printer.DrawPlots(draw_opts,texts,dt_fmt,mc_fmt,mc_var_fmt)
