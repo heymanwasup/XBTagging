@@ -53,36 +53,14 @@ class MakeControlPlots(object):
     mc_hist_names = self.GetMCNames(mc_fmt,self.nominals)
     syst_hist_names = self.GetSystNames(mc_fmt,mc_var_fmt)
     
-#    P(data_hist_name)
-#    P(mc_hist_names)
-#    P(syst_hist_names)
-#    return 
-
     #get the histograms 
     xbins = draw_opts['xBins']
     hist_maker = DB.RetrieveHists(self.tfile,data_hist_name,mc_hist_names,syst_hist_names,xbins) 
 
     dt_hist,mc_hists,errband_hist = hist_maker.PrepareHists()
 
-#print mc_hists
     mc_hists_organ = [ [entry[0],mc_hists[entry[0]],entry[2]] for entry in self.entries ]
 
-    
-    print '\n\n\n-----------------------------------------------------------'
-    print mc_hists
-
-    '''
-    f = R.TFile('plots.root','recreate')
-    dt_hist.Write()
-    for name,hist in mc_hists.iteritems():
-      hist.SetName(name)
-      hist.Write()
-    errband_hist.SetName('herrband')
-    errband_hist.Write()
-    f.Close()
-    return 
-    '''
-  
     #draw the histograms
     plots_drawer = DB.DrawControlPlots(draw_opts,texts)
     plots_drawer.Print(dt_hist,mc_hists_organ,errband_hist)

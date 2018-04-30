@@ -11,8 +11,6 @@ import copy
 R.gROOT.SetBatch(True)
 #retrieve histograms from root file
 #data, mc, errband 
-draw_data = False
-deco_new = True
 
 class RetrieveHists(object):
   def __init__(self,tfile,dataHistName,mcHistsName,systsName={},xbins=None):
@@ -62,50 +60,46 @@ class RetrieveHists(object):
 
     return  dataHist,mcHists,errbandHist
 
+
+
   def GetErrorBand(self,mcSum,systHists):
-    mcNominal,mcNominal_stat = self.GetHistContent(mcSum)
-    Nbins = mcSum.GetNbinsX()
     
-    errorband = []
+    errors = {}
 
-    #append mc stat error
-    up,down = 0,0
-    for n in range(Nbins):
-      if mcNominal[n]==0:
-        stat_err = 0
-      else:  
-        up = mcNominal[n]/(mcNominal[n]+mcNominal_stat[n])
-        down = mcNominal[n]/(mcNominal[n]-mcNominal_stat[n])
-        stat_err = abs(up-down)/2. 
-      print 'mc   {0:5.5f}    +-    {1:5.5f}'.format(mcNominal[n],mcNominal_stat[n])
-      print 'up   {0:5.5f}    down  {1:5.5f}'.format(up,down)
-      print 'stat {0:5.5f}'.format(stat_err)
-      print '\n\n\n'
-      errorband.append(stat_err)
-
-    #append syst. uncer.
+    mcNominal,mcNominal_stat = self.GetHistContent(mcSum)
+    
+    errors['mcstat'] = mcNominal_stat
+   
+    Nbins = mcSum.GetNbinsX()
     for name,systs in systHists.iteritems():
-      systDown,_ = self.GetHistContent(systs[0])
-      systUp,_ = self.GetHistContent(systs[1]) 
-      for n in range(Nbins): 
-        up = mcNominal[n]/systUp[n]
-        down = mcNominal[n]/systDown[n]
-        syst_err = abs(up-down)/2.
-        errorband[n] = math.sqrt(errorband[n]**2+syst_err**2)
+      systDown,systDown_stat = self.GetHistContent(systs[0])
+      systUp,systUp_stat = self.GetHistContent(systs[1])
+      errors[name] = []
+      for n in range(Nbins):
+        errors[name].append(abs(systUp[n]-systDown[n])/2.)
 
-    #fill errorband
+    errband_tot = [0. for _ in range(Nbins)] 
+    for name,syst in errors.iteritems():
+      for n in range(Nbins):
+        errband_tot[n] = math.sqrt((errband_tot[n]**2 + syst[n]**2))
+    
     h_errband = mcSum.Clone()
     h_errband.Reset()
-    for n in range(Nbins):
-      h_errband.SetBinContent(n+1,1)
-      h_errband.SetBinError(n+1,errorband[n])
+    
+    self.FillHistContent(h_errband,mcNominal,errband_tot)
+
     return h_errband
-      
+
+  def GetErrorBand_new(self,systHists):
+    Nbins = mcSum.GetNbinsX()
+    errorband = []
+    
+
   @staticmethod
   def GetHistContent(hist):
     Nbins = hist.GetNbinsX()
     bincontents = []
-    binerrors = []
+    binerrors = []    
     for n in range(1,Nbins+1):
       content = hist.GetBinContent(n)
       error = hist.GetBinError(n)
@@ -113,14 +107,23 @@ class RetrieveHists(object):
       binerrors.append(error)
     return bincontents,binerrors 
 
+  @staticmethod
+  def FillHistContent(hist,val,err=None):
+    if err==None: 
+      err = [0.]*len(val)
+    Nbins = hist.GetNbinsX()
+    if not ((len(val)==len(err)) and (len(val)==Nbins)):
+      print 'len of val = {0:}, len of err = {1:}, len of hist = {2}:'.format(len(val),len(err),Nbins)
+      raise ValueError('not ((len(val)==len(err)) and (len(val)==Nbins))')
+    for n in range(Nbins):
+      hist.SetBinContent(n+1,val[n])
+      hist.SetBinError(n+1,err[n])
+    return hist
+
   def GetHist(self,names):
     hist = tools.GetHistFromNames(self.tfile,names)
     if not hist :
       raise RuntimeError('hist is empt')
-    if self.xbins != None:
-      nbins = len(self.xbins)-1
-      xbins = array('d',self.xbins) 
-      hist = hist.Rebin(nbins,'',xbins)
     return hist
 
 class DrawControlPlots(object):
@@ -138,16 +141,16 @@ class DrawControlPlots(object):
   def Prepare(self,dataHist,mcHists,errBand):
 
     #rebining
+    #reunit
     #get&set maximum/minimum value 
     #get&set range 
     #get ratio histogram
-    ratio = self.ProcessHists(dataHist,mcHists,errBand)
+    #get ratio error band histogram
+    #set marker color/marker offset/title size/label size/...
+    ratio,ratioErrorBand = self.ProcessHists(dataHist,mcHists,errBand)
     
     #get thstack
-    hs = self.GetTHStack(mcHists)
-
-    #set color/marker_size/marker_style/title...
-    self.DecorateHists(dataHist,hs,ratio,errBand)
+    hs = self.GetTHStack(mcHists,self.Opts['mcHStack_new'])
     
     #get canvas
     canvas = self.GetCanvas()
@@ -158,7 +161,7 @@ class DrawControlPlots(object):
 
     #get up/down legend
     leg_up = self.GetUpLegend(dataHist,mcHists)
-    leg_do = self.GetDownLegend(ratio,errBand)
+    leg_do = self.GetDownLegend(ratio,ratioErrorBand)
 
     #prepare other objects
    
@@ -172,7 +175,7 @@ class DrawControlPlots(object):
       'ratio':ratio,
       'leg_up':leg_up,
       'leg_do':leg_do,
-      'errBand':errBand,
+      'errBand':ratioErrorBand,
     }
    
   def DrawText(self,text,x,y,color=1,tsize=-1):
@@ -180,7 +183,6 @@ class DrawControlPlots(object):
     if tsize>0:
       l.SetTextSize(tsize)
     l.SetNDC()
-    #l.SetTextFont(font)
     l.SetTextColor(color)
     l.DrawLatex(x,y,text)
 
@@ -194,45 +196,17 @@ class DrawControlPlots(object):
 
     P['pad_up'].cd()
 
-    if draw_data:
-      #self.DecorateObjectNew(P['dataHist'],self.Opts['mcHStack_new'])
-
-      if deco_new:
-        pass
-        self.DecorateObjectNew(P['dataHist'],self.Opts['mcHStack_new'])
-      else:
-        pass
-        self.DecorateHist(P['dataHist'],self.Opts['mcHStack'])
 
 
-      P['dataHist'].Draw('e')
-      P['hs'].Draw('HIST SAME')
-      print 'minmimum and maximum for THStack and datahist'
-      #print P['hs'].GetMaximum()
-      #print P['hs'].GetMinimum()      
-      print P['dataHist'].GetMaximum()
-      print P['dataHist'].GetMinimum()
-    else:
+    P['hs'].Draw('HIST')
+    self.DecorateObjectNew(P['hs'],self.Opts['mcHStack_new'])
+    P['dataHist'].Draw('esame')
 
-      P['hs'].Draw('HIST')
-      if deco_new:
-        self.DecorateObjectNew(P['hs'],self.Opts['mcHStack_new'])
-      else:
-        self.DecorateHist(P['hs'],self.Opts['mcHStack'])
-      self.DecorateHist(P['hs'],self.Opts['mcHStack'])
-      P['dataHist'].Draw('esame')
-      print 'minmimum and maximum for THStack and datahist'
-      print P['hs'].GetMaximum()
-      print P['hs'].GetMinimum()      
-      print P['dataHist'].GetMaximum()
-      print P['dataHist'].GetMinimum()
-
-
-
+    print 'P 0'
+    print P['dataHist']
+    self.PrintHist(P['dataHist'])
     P['leg_up'].SetTextFont(62)
     P['leg_up'].Draw('same')
-    #self.DecorateHist(P['hs'],self.Opts['mcHStack'])
-    #P['dataHist'].Draw('esame')
 
     for name,txts in self.Texts.iteritems():
       self.DrawText(*txts)
@@ -246,215 +220,221 @@ class DrawControlPlots(object):
     P['ratio'].Draw('same')
 
     P['errBand'].Draw('E2same')
-    print '\n\nratio'
-    self.PrintHist(P['ratio'])
-    print '\n\nerrBand'
-    self.PrintHist(P['errBand'])
     P['leg_do'].Draw('same')
 
     for fmt in self.Opts['fmt']:
       P['canvas'].Print('{0:}.{1:}'.format(self.Opts['name'],fmt))
+
+
+  @staticmethod
+  def GetHistContent(hist):
+    Nbins = hist.GetNbinsX()
+    bincontents = []
+    binerrors = []    
+    for n in range(1,Nbins+1):
+      content = hist.GetBinContent(n)
+      error = hist.GetBinError(n)
+      bincontents.append(content)
+      binerrors.append(error)
+    return bincontents,binerrors 
 
   def PrintHist(self,hist):
     N = hist.GetNbinsX()
     for n in range(1,N+1):
       c = hist.GetBinContent(n)
       e = hist.GetBinError(n)
-      print '{0:10}   {1:5.2f} +-  {2:3.5f}'.format(n,c,e)
+      w = hist.GetBinWidth(n)
+      l = hist.GetBinLowEdge(n)
+
+      print '{0:10} {3:.0f}_{4:.0f}   {1:5.2f} +-  {2:3.5f}'.format(n,c,e,l,l+w)
 
   def GetPad(self,name):
-    opts = self.Opts
-    pad = R.TPad(name,name,*opts['%sPosition'%name])  
-    for key,value in opts['%sSettings'%name].iteritems():
-      getattr(pad,key)(value)
-
+    opts = self.Opts[name]
+    pad = self.ConstructRootObject(R.TPad,opts)
     return pad
-
-  def ProcessAndPrepareHist(self,dataHist,mcHists,errBand):
-    mkSize = self.Opts['dataMarkerSize']
-    xRange = self.Opts['xRange']
-    xBins = Opts['xBins']
-
-    dataHist.SetMarkerSize(mkSize)
-    if xRange!=None:
-      dataHist.GetXaxis.SetRangeUser(*xRange)
-    '''
-    if xBins!=None:
-      hist = hist.Rebin(len(xBins)-1,array('d',xBins))
-    '''
-
-    sumHist = None
-    for n,hist in enumerate(mcHists):
-      '''
-      if xbins!=None:
-        hist[1] = hist[1].Rebin(len(xbins)-1,array('d',xbins))
-      '''
-      if sumHist == None:
-        sumHist = hist[1].Clone()
-      else:
-        sumHist.Add(hist[1])
-      hist[1].SetFillColor(color)
-      mcHists[n] = hist[0:2]
-
-    ratio = dataHist.Clone()
-    ratio.Reset()
-    ratio.Divide(dataHist,sumHist)
-
-    '''
-    ratio.SetTitle(self.Opts['rTitle'])
-    ratio.GetXaxis().SetTitleSize(self.Opts['rXTitleSize'])
-    ratio.GetXaxis().SetTitleOffset(self.Opts['rXTitleOffset'])
-    ratio.GetXaxis().SetLabelSize(self.Opts['rXLabelSize'])
-    ratio.GetYaxis().SetTitleSize(self.Opts['rYTitleSize'])
-    ratio.GetYaxis().SetTitleOffset(self.Opts['rYTitleOffset'])
-    '''
-
-    errBand.SetFillStyle(self.Opts['errbFillStyle']);
-    errBand.SetFillColor(self.Opts['errbFillColor']);
-    errBand.SetMarkerColor(self.Opts['errbMarkerColor']);
-    '''
-    errBand.GetXaxis().SetTitle(self.Opts['errbTitle']);
-    errBand.GetXaxis().SetTitleSize(0.1);
-    '''
-    errBand.SetMarkerSize(0.);
-    errBand.SetStats(0);
-    errBand.SetLineWidth(1);
-    return dataHist,sumHist,mcHists,ratio,errBand
-
-  '''
-  def ProcessHists(self,dataHists,mcHists,errBand):
-    sumHist = None
-    for n,hist in enumerate(mcHists):
-      if xbins!=None:
-        hist[1] = hist[1].Rebin(len(xbins)-1,array('d',xbins))
-      if sumHist == None:
-        sumHist = hist[1].Clone()
-      else:
-        sumHist.Add(hist[1])
-      hist[1].SetFillColor(color)
-      mcHists[n] = hist[0:2]
-  '''
     
-  def GetUpLegend(self,dataHist,mcHists):
-    position = self.Opts['upLegPosition']
-    columns = self.Opts['columns']
-    nameD = self.Opts['dataName']
-    leg = R.TLegend(*position)
-    leg.SetNColumns(columns)
-    leg.SetFillStyle(0)
-    leg.SetBorderSize(0)
+  def ConstructRootObject(self,Cls,opts):
+    constructor = opts['constructor']
+    settings = None if not 'settings' in opts else opts['settings']
+    if isinstance(constructor,dict):
+      obj = Cls(**constructor)
+    else:
+      obj = Cls(*constructor)
+    if not settings == None:
+      self.DecorateObjectNew(obj,settings)
+    return obj
 
-    leg.AddEntry(dataHist,nameD,'p')
+  def GetUpLegend(self,dataHist,mcHists):
+    leg = self.ConstructRootObject(R.TLegend,self.Opts['upLeg'])
+    leg.AddEntry(dataHist,'Data','p')
     for name,hist,_ in mcHists[-1::-1]:
       leg.AddEntry(hist,name,'f')
     return leg
   
   def GetDownLegend(self,ratio,errBand):
-    position = self.Opts['downLegPostion']
+    leg = self.ConstructRootObject(R.TLegend,self.Opts['downLeg'])
     nameB = self.Opts['errBandName']
-    leg = R.TLegend(*position)
     leg.AddEntry(errBand,nameB,'f')
-#leg.AddEntry(ratio)
     return leg
 
-   
+  def Buger1(self,dataHist,name):
+    self.Opts['xRange'] = self.GetXRange(dataHist)
+    print 'xRange {0:}'.format(name)
+    print self.Opts['xRange']
 
   def ProcessHists(self,dataHist,mcHists,errBand):
-    xRange = self.Opts['xRange']
-    yRange = self.Opts['yRange']
-    xBins  = self.Opts['xBins']
+
+    self.ReBinning(dataHist,mcHists,errBand)
+
+    self.ReUnit(dataHist,mcHists,errBand)
+
+    sumHist = self.GetMCSum(mcHists)
+    ratio = self.GetRatioHist(dataHist,sumHist)
+    ratioErrorBand = self.GetRatioErrorBand(errBand)
+
+    if self.Opts['xRange'] == None:
+      self.Opts['xRange'] = self.GetXRange(dataHist)
+
     isLogy = self.Opts['isLogy']
-    funit  = self.Opts['funit']
-
-    FooIsHist = lambda x:isinstance(x,R.TH1)
-    FooRebinner = lambda hist,xbins:x.Rebin(len(xbins)-1,'',array('d',xbins))
-    FooAddHist = lambda histA,histB:(histA,histA.Add(histB))[0]
-    FooFooSetXRange = lambda xRange : lambda hist : hist.GetXaxis().SetRangeUser(*xRange)
-
-    mc_hists = [hist[1] for hist in mcHists]
-    all_hists = mc_hists + [dataHist, errBand]
-
-    #rebinning all hists
-    '''
-    if xBins != None:
-      ALG().Map(FooIsHist,FooRebinner,all_hists)
-      NbinsX = errBand.GetNbinsX()
-      for n in range(NbinsX):
-        errBand.SetBinContent(n+1,1)
-    '''
-      
-    if funit != None:
-      dtmcHists = mc_hists + [dataHist]
-      NbinsX = dataHist.GetNbinsX() 
-      for hist in dtmcHists:
-        for n in range(NbinsX):
-          c = hist.GetBinContent(n+1)
-          e = hist.GetBinError(n+1)
-          w = hist.GetBinWidth(n+1)
-          c_new = c/(w/funit) 
-          e_new = e/(w/funit) 
-          hist.SetBinContent(n+1,c_new)
-          hist.SetBinError(n+1,e_new)
+    if self.Opts['yRange'] == None:
+      self.Opts['yRange'] = self.GetYRange(dataHist,sumHist,isLogy)
 
 
+    self.SetXRange(self.Opts['xRange'], dataHist, mcHists, ratio, ratioErrorBand)
+    self.SetYRange(self.Opts['yRange'], dataHist)
 
 
-           
-    #mc sum hist
-    sum_start = mc_hists[0].Clone()
-    sum_start.Reset()
-    sumHist = ALG().Reduce(FooIsHist,FooAddHist,mc_hists,sum_start)
+    optsBnew = self.Opts['errBandnew']
+    optsRnew = self.Opts['ratioHist_new']
+    optsDnew = self.Opts['dataHist_new']
+    self.DecorateObjectNew(ratio,optsRnew)
+    self.DecorateObjectNew(ratioErrorBand,optsBnew)
+    self.DecorateObjectNew(dataHist,optsDnew)
 
-    #get yRange
-    ymax = max(sumHist.GetMaximum(),dataHist.GetMaximum())
-    if yRange == None:
-      if isLogy:
-        yRange = [1.,ymax**1.5]
+    return ratio,ratioErrorBand
+
+  def GetRatioErrorBand(self,errBand):
+    NbinsX = errBand.GetNbinsX()
+    errb_vals,errb_errs = self.GetHistContent(errBand)
+
+    ratio_errb_vals = [1.]*NbinsX
+    ratio_errb_errs = []
+    for n in range(NbinsX):
+      if errb_vals[n]==0.:
+        ratio_errb_errs.append(0.)
       else:
-        yRange = [0.,ymax*1.5]
-      self.Opts['yRange'] = yRange
+        ratio_errb_errs.append(errb_errs[n]/errb_vals[n])
+    h_ratio_errb = errBand.Clone()
+    h_ratio_errb.Reset()
+    self.FillHistContent(h_ratio_errb,ratio_errb_vals,ratio_errb_errs)
+    return h_ratio_errb
 
-    #data/mc ratio hist
+  @staticmethod
+  def FillHistContent(hist,val,err=None):
+    if err==None: 
+      err = [0.]*len(val)
+    Nbins = hist.GetNbinsX()
+    if not ((len(val)==len(err)) and (len(val)==Nbins)):
+      print 'len of val = {0:}, len of err = {1:}, len of hist = {2}:'.format(len(val),len(err),Nbins)
+      raise ValueError('not ((len(val)==len(err)) and (len(val)==Nbins))')
+    for n in range(Nbins):
+      hist.SetBinContent(n+1,val[n])
+      hist.SetBinError(n+1,err[n])
+    return hist
+
+  def ReUnit(self,dataHist,mcHists,errBand):
+    if self.Opts['funit'] == None:
+      return 
+    hists = [dataHist, errBand] + [hist[1] for hist in mcHists]
+    funit = self.Opts['funit']
+    NbinsX = hists[0].GetNbinsX() 
+    print 'In R 0'
+    print dataHist
+    self.PrintHist(dataHist)
+    for hist in hists:
+      for n in range(NbinsX):
+        c = hist.GetBinContent(n+1)
+        e = hist.GetBinError(n+1)
+        w = hist.GetBinWidth(n+1)
+        c_new = c/(w/funit) 
+        e_new = e/(w/funit) 
+        hist.SetBinContent(n+1,c_new)
+        hist.SetBinError(n+1,e_new)
+    print 'In R 1'
+    print dataHist
+    self.PrintHist(dataHist)
+  def ReBinning(self,dataHist,mcHists,errBand):
+    if self.Opts['xBins'] == None:
+      return dataHist,mcHists,errBand
+
+    xBins = array('d',self.Opts['xBins'])
+    print 'I 0'
+    print dataHist
+    self.PrintHist(dataHist)
+    dataHist.Rebin(len(xBins)-1,'',xBins).Copy(dataHist)
+    print 'I 1'
+    print dataHist
+    for hist in mcHists:
+      hist[1] = hist[1].Rebin(len(xBins)-1,'',xBins)
+    errBand = errBand.Rebin(len(xBins)-1,'',xBins)
+    return dataHist,mcHists,errBand
+
+  def GetMCSum(self,mcHists):
+    #mc sum hist
+    mc_hists = [hist[1] for hist in mcHists]
+    sumHist = mc_hists[0].Clone()
+    sumHist.Reset()
+    for hist in mc_hists:
+      sumHist.Add(hist)
+    return sumHist
+
+  def GetYRange(self,dataHist,sumHist,isLogy):
+    ymax = max(sumHist.GetMaximum(),dataHist.GetMaximum())
+    if isLogy:
+      yRange = [1.,ymax**1.5]
+    else:
+      yRange = [0.,ymax*1.5]
+    return yRange
+
+  def GetXRange(self,dataHist):
+    nBins = dataHist.GetNbinsX()
+    xMin = dataHist.GetBinLowEdge(1) 
+    xMax = dataHist.GetBinLowEdge(nBins) + dataHist.GetBinWidth(nBins)
+    xRange = [xMin,xMax]
+    return xRange
+
+  def SetXRange(self,xRange, dataHist, mcHists, ratio, ratioErrorBand):
+
+    #hists = [ dataHist,] + [hist[1] for hist in mcHists]
+    hists = [ dataHist, ratio, ratioErrorBand] + [hist[1] for hist in mcHists]
+    #print hists
+    for hist in hists:
+        hist.GetXaxis().SetRangeUser(*xRange)
+
+  def SetYRange(self,yRange,dataHist):
+    dataHist.SetMaximum(yRange[0])
+    dataHist.SetMaximum(yRange[1])
+
+  def GetRatioHist(self,dataHist,sumHist):
     ratio = sumHist.Clone()
     ratio.Reset()
     ratio.Divide(dataHist,sumHist)
-    
-    all_hists += [sumHist,ratio]
-     
-    #set xRange
-    if xRange == None:
-      nBins = dataHist.GetNbinsX()
-      xMin = dataHist.GetBinLowEdge(1) 
-      xMax = dataHist.GetBinLowEdge(nBins) + dataHist.GetBinWidth(nBins)
-      xRange = [xMin,xMax]
-      self.Opts['xRange'] = xRange
-    dataHist.SetMaximum(self.Opts['yRange'][1])
-    dataHist.SetMinimum(self.Opts['yRange'][0])
-    print 'max min for data'
-    print self.Opts['yRange']
-
-
-    
-    ALG().Map(FooIsHist,FooFooSetXRange(xRange),all_hists)
-
     return ratio
 
 
-  def GetTHStack(self,mcHists):
+  def GetTHStack(self,mcHists,Opts):
     thstack = R.THStack('','')
     for name,hist,color in mcHists:
       hist.SetFillColor(color)
     for name,hist,color in mcHists:
       if name == 'z+jets':
-        print name
-        self.PrintHist(hist)
+        pass
       thstack.Add(hist)
 
-    thstack.SetMaximum(self.Opts['yRange'][1])
-    thstack.SetMinimum(self.Opts['yRange'][0])
-    print 'max min for thstack'
-    print self.Opts['yRange']
-#thstack.GetXaxis().SetRangeUser(*self.Opts['xRange'])
+    Opts['Minimum'] = self.Opts['yRange'][0]
+    Opts['Maximum'] = self.Opts['yRange'][1]
+    Opts['Xaxis']['RangeUser'] = tuple(self.Opts['xRange'])
+
     return thstack
 
   def DecorateObjectNew(self,obj,opts):
@@ -469,60 +449,17 @@ class DrawControlPlots(object):
         getter = getattr(obj,'Get{0:}'.format(key))
         _obj = getter()
         self.DecorateObjectNew(_obj,value)
-         
-  def DecorateHist(self,hist,opts):
-    if isinstance(hist,R.TH1):
-      hist.SetStats(0)
-    xaxis = hist.GetXaxis()
-    xaxis.SetTitle(opts['xTitle'])
-    xaxis.SetTitleSize(opts['xTitleSize'])
-    xaxis.SetTitleOffset(opts['xTitleOffset'])
-    xaxis.SetTitleFont(opts['xTitleFont'])
-    xaxis.SetLabelSize(opts['xLabelSize'])
-    xaxis.SetLabelFont(opts['xLabelFont']);
-    xaxis.SetLabelOffset(opts['xLabelOffset']);
-    xaxis.SetNdivisions(opts['xNdiv'])
 
-    yaxis = hist.GetYaxis()
-    yaxis.SetTitle(opts['yTitle'])
-    yaxis.SetTitleSize(opts['yTitleSize'])
-    yaxis.SetTitleOffset(opts['yTitleOffset'])
-    yaxis.SetTitleFont(opts['yTitleFont'])
-    yaxis.SetLabelSize(opts['yLabelSize']);
-    yaxis.SetLabelFont(opts['yLabelFont']);
-    yaxis.SetLabelOffset(opts['yLabelOffset']);
-    yaxis.SetNdivisions(opts['yNdiv'])
-
-    if 'MarkerSize' in opts:
-      hist.SetMarkerSize(opts['MarkerSize'])
-    if 'MarkerColor' in opts:
-      hist.SetMarkerColor(opts['MarkerColor'])
-    if 'LineWitdth' in opts:
-      hist.SetLineWidth(opts['LineWitdth'])
-    if 'FillColor' in opts:
-      hist.SetFillColor(opts['FillColor'])
-    if 'FillStyle' in opts:
-      hist.SetFillStyle(opts['FillStyle'])
 
   def DecorateHists(self,dataHist,hs,ratio,errBand):
 
-    optsD = self.Opts['dataHist']
-    optsDnew = self.Opts['dataHist_new']
-    optsM = self.Opts['mcHStack']
-    optsR = self.Opts['ratioHist']
-    optsB = self.Opts['errBand']
     optsBnew = self.Opts['errBandnew']
     optsRnew = self.Opts['ratioHist_new']
+    optsDnew = self.Opts['dataHist_new']
 
-    print 'optsD'
-    print optsD
-
-    print '\noptsDnew'
-    print optsDnew
-    self.DecorateHist(dataHist,optsD)
-    #self.DecorateObjectNew(dataHist,optsDnew)
     self.DecorateObjectNew(ratio,optsRnew)
     self.DecorateObjectNew(errBand,optsBnew)
+    self.DecorateObjectNew(dataHist,optsDnew)
 
   def GetCanvas(self):
     canvas = R.TCanvas('canvas','canvas',*self.Opts['canvasSize'])
