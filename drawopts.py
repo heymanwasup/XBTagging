@@ -92,6 +92,9 @@ class OPts(object):
       'LineWidth':1,
       'FillStyle':3002,
       'FillColor':3,
+      'Yaxis':{
+       # 'RangeUser':(0.,2.),
+      }
     }
     return opts
     
@@ -146,6 +149,7 @@ class OPts(object):
         'LabelFont':42,
         'LabelOffset':0.005,
         'Ndivisions':50104,
+        'RangeUser':(0.5,1.5),
       },
 
     }

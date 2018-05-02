@@ -156,7 +156,7 @@ def GetVarsList(rfile,Pnominal,Pvars):
       Vars[var].append(Pnominal)
   return Vars
 
-def GetHistFromNames(tfile,names):
+def GetHistFromNames(tfile,names,is_debug=False):
   sumHist = None
   for name in names:
     hist = tfile.Get(name) 
@@ -165,7 +165,9 @@ def GetHistFromNames(tfile,names):
     if sumHist == None:
       sumHist = hist.Clone()
     else:
-      sumHist.Add(sumHist)
+      sumHist.Add(hist)
+    if is_debug:
+      print 'tot {0:4.2e} \n \t add {1:} \n \t\t {2:3.2e}'.format(sumHist.Integral(),name,hist.Integral())
   return sumHist
 
 def main():

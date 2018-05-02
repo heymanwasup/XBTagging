@@ -10,124 +10,30 @@ import DrawPlots_new as DB
 
 from drawopts import OPts
 
-'''
-    'entries' = 
-      [
-        ['Light-flavour jet',Color1,[('L'),('ttbar','stop_Wt','diboson_sherpa')]],
-        ['Charm-flavour jet',Color2,[('C'),('ttbar','stop_Wt','diboson_sherpa')]],
-        ['B-flavour jet',    Color3,[('B'),('ttbar','stop_Wt','diboson_sherpa')]],
-      ]
-'''
-
-class MakeControlPlots(object):
-  def __init__(self,tfile_path,output_path,cfg_path):
-    cfg = toolkit.json_load(cfg_path)
-    ptn_nominal =cfg['format']['nominal']['var']
-    ptn_variation = cfg['format']['variation']['var']
-    toolkit.mkdir('{0:}/{1:}'.format(output_path,cfg['rtag']))
-
-    self.tfile = R.TFile(tfile_path)
-    self.output_path = output_path
-    self.jet = cfg['jet']
-    self.rtag = cfg['rtag']
-    self.data = cfg['data']
-    self.nominals = cfg['nominals']
-    self.modellings = cfg['modellings']
-    self.vars_list = tools.GetVarsList(self.tfile,ptn_nominal,ptn_variation)
-    self.samples = cfg['samples_register']
-    
 
 
-  #entries = [[NameInLeg, NameInHist, Color],[]...]
-  def SetupDraw(self,entries,is_modelling,is_variation,is_flav):
-    self.entries = entries
-    self.is_modelling = is_modelling
-    self.is_variation = is_variation
-    self.is_flav = is_flav
 
+def DrawProbeJetPt():
 
-  #draw the plots
-  def DrawPlots(self,draw_opts,texts,dt_fmt,mc_fmt,mc_var_fmt=None):
-    
-    #get the names of the histograms 
-    data_hist_name = self.GetDataNames(dt_fmt)
-    mc_hist_names = self.GetMCNames(mc_fmt,self.nominals)
-    syst_hist_names = self.GetSystNames(mc_fmt,mc_var_fmt)
-    
-    #get the histograms 
-    hist_maker = DB.RetrieveHists(self.tfile,data_hist_name,mc_hist_names,syst_hist_names) 
-    dt_hist,mc_hists,errband_hist = hist_maker.PrepareHists()
+  
+  input_file = '../input/test.root'
+  output_path = '../plots/'
+  cfg_path = '../data/Run_CalJet_test.json'
+  is_modelling = True
+  is_variation = True
 
-    mc_hists_organ = [ [entry[0],mc_hists[entry[0]],entry[2]] for entry in self.entries ]
+  printer = DB.MakeControlPlots(input_file,output_path,cfg_path,is_modelling,is_variation)
 
-    #draw the histograms
-    plots_drawer = DB.DrawControlPlots(draw_opts,texts)
-    plots_drawer.Print(dt_hist,mc_hists_organ,errband_hist)
+  texts = {
+    'ATLAS Label' : ['#font[72]{ATLAS}',0.2,0.844,1,0.05*1.58],
+    'Status'      : ['#font[42]{Internal}',0.37, 0.844,1,0.05*1.58],
+    'COME & LUMI' : ['#font[42]{#sqrt{s}=13 TeV, 36.1 fb^{-1}}',0.2, 0.77, 1, 0.0375*1.58],
+    'Selection'   : ['#font[42]{e #mu 2 jets , #geq 1 tagged}',0.2, 0.7, 1, 0.03*1.58],
+  }
+  
+  draw_opts = OPts().drawopts
 
-  def GetDataNames(self,dt_fmt):
-    data_name = [dt_fmt.format(sample=data) for data in self.data]
-    return data_name
-
-  def GetMCNames(self,mc_fmt,mc_samples):
-    samples = self.GetMCSamples(self.entries,mc_samples)
-    mc_names = {}
-    for name,entry in samples.iteritems():
-      mc_names[name] = []
-      values = list(itertools.product(*entry))
-      for value in values:
-        if self.is_flav:
-          key_value = {'flav':value[0],'sample':value[1]}
-        else:
-          key_value = {'sample':value[0]}
-        mc_names[name].append(mc_fmt.format(**key_value)) 
-    return mc_names 
-     
-  def GetSystNames(self,mc_fmt,mc_var_fmt):
-    systs = {}
-    if self.is_modelling:
-      for sample,modellings in self.modellings.iteritems():
-        for mod_name,items in modellings.iteritems():
-          samples = copy.deepcopy(self.nominals)
-          up = toolkit.MergeDict(self.nominals,{sample:items[0]})
-          down = toolkit.MergeDict(self.nominals,{sample:items[1]})
-          up_names = self.GetMCNames(mc_fmt,up)
-          down_names = self.GetMCNames(mc_fmt,down)
-          systs[mod_name] = [up_names,down_names]
-    
-    FooExpander = lambda systs:[reduce(lambda x,y:x+y,systs.values())]
-    if self.is_variation:
-      FooFmt = lambda variation : mc_fmt if variation == 'SysNominal' else mc_var_fmt
-      for variation, items in self.vars_list.iteritems():
-        up_var_fmt = toolkit.PartialFormat(FooFmt(items[0]),{'var':items[0]})
-        _up_names = self.GetMCNames(up_var_fmt,self.nominals)
-        up_names = FooExpander(_up_names) 
-
-        down_var_fmt = toolkit.PartialFormat(FooFmt(items[1]),{'var':items[1]})
-        _down_names = self.GetMCNames(down_var_fmt,self.nominals)
-        down_names = FooExpander(_down_names) 
-        systs[variation] = [up_names,down_names]
-    return systs
-
-  def GetMCSamples(self,entries,mc_samples): 
-    _samples = {sample:self.samples[sample][version] for sample,version in mc_samples.iteritems()}
-    samples = {}
-    if not self.is_flav:
-      for entry in entries:
-        samples[entry[0]] = [ _samples[entry[1]] ]
-    else:
-      mc_samples = [ name for name in names for _,names in samples.iteritems()]
-      for entry in self.entries:
-        samples[entry[0]] = [ [ entry[1] ], mc_samples ]
-    return samples
-
-def P(names):
-    for name,hnames in names.iteritems():
-      for s in hnames:
-        pass
-#        print name,s
-
-def main():
-  entries = [
+  entries_sample = [
     ['z+jets','zjets',R.kBlue],
     ['Misid. leptons','fake',R.kGreen],
     ['Single top','stop',R.kRed],
@@ -135,26 +41,49 @@ def main():
     ['t#bar{t}','tt',R.kWhite],
   ]
 
-  draw_opts = OPts().drawopts
-  texts = {
-    'ATLAS Label' : ['#font[72]{ATLAS}',0.2,0.844,1,0.05*1.58],
-    'Status'      : ['#font[42]{Internal}',0.37, 0.844,1,0.05*1.58],
-    'COME & LUMI' : ['#font[42]{#sqrt{s}=13 TeV, 36.1 fb^{-1}}',0.2, 0.77, 1, 0.0375*1.58],
-    'Selection'   : ['#font[42]{e #mu 2 jets , #geq 1 tagged}',0.2, 0.7, 1, 0.03*1.58],
+  dt_fmt_sample = 'SysNominal/{sample:}_TP_1ptag2jet_MVA100_XMu_em_xEta_PxT85CalJetPt' 
+  mc_fmt_sample = 'SysNominal/{sample:}_TP_1ptag2jet_MVA100_XMu_em_xEta_PxT85CalJetPt' 
+  mc_var_fmt_sample = '{variation:}/{sample:}_TP_1ptag2jet_MVA100_XMu_em_xEta_PxT85CalJetPt_{variation:}'  
+
+  entries_flav = [
+    ['Light-jet','L',R.kRed],
+    ['Charm-jet','C',R.kBlue],
+    ['B-jet','B',R.kWhite],
+  ]  
+
+  dt_fmt_flav = 'SysNominal/{sample:}_TP_1ptag2jet_MVA100_XMu_em_xEta_PxT85CalJetPt' 
+  mc_fmt_flav = 'SysNominal/{sample:}_{flav:}_TP_1ptag2jet_MVA100_XMu_em_xEta_PxT85CalJetPt' 
+  mc_var_fmt_flav = '{variation:}/{sample:}_{flav:}_TP_1ptag2jet_MVA100_XMu_em_xEta_PxT85CalJetPt_{variation:}' 
+
+  args_sample = {
+    'pic_name':'ProbeJetPt_Sample',
+    'entries':entries_sample,
+    'dt_fmt':dt_fmt_sample,
+    'mc_fmt':mc_fmt_sample,
+    'mc_var_fmt':mc_var_fmt_sample,
+    'texts':texts,
+    'draw_opts':draw_opts,
+    'is_flav':False,
   }
 
+  args_flav = {
+    'pic_name':'ProbeJetPt_Flav',
+    'entries':entries_flav,
+    'dt_fmt':dt_fmt_flav,
+    'mc_fmt':mc_fmt_flav,
+    'mc_var_fmt':mc_var_fmt_flav,
+    'texts':texts,
+    'draw_opts':draw_opts,
+    'is_flav':True,
+  }
 
-  dt_fmt = 'SysNominal/{sample:}_TP_1ptag2jet_MVA100_XMu_em_xEta_PxT85CalJetPt' 
-  mc_fmt = 'SysNominal/{sample:}_TP_1ptag2jet_MVA100_XMu_em_xEta_PxT85CalJetPt' 
-  mc_var_fmt = '{var:}/{sample:}_TP_1ptag2jet_MVA100_XMu_em_xEta_PxT85CalJetPt_{var:}' 
+  printer.DrawPlots(**args_sample)
+  printer.DrawPlots(**args_flav)
 
-  is_modelling = True
-  is_variation = True
-  is_flavour_combination = False
-  
-  printer = MakeControlPlots('../input/test.root','../plots/','../data/Run_CalJet_test.json')
-  printer.SetupDraw(entries,True,True,False)
-  printer.DrawPlots(draw_opts,texts,dt_fmt,mc_fmt,mc_var_fmt)
+
+def main():
+  DrawProbeJetPt()
+  #DrawProbeFlavourComb()
 
 if __name__ == '__main__':
   main()
