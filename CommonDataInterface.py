@@ -124,7 +124,7 @@ class DataConfig(object):
     mc_samples['tt'] = tt
 
     stop = {}
-    stop['PowPy6']  = ['stop_s','stop_t','stop_Wt']
+    stop['PowPy6']   = ['stop_s','stop_t','stop_Wt']
     stop['DS']       = ['stop_Wt_DS']
     stop['radlo']    = ['stop_Wt_RadLo']
     stop['radhi']    = ['stop_Wt_RadHi']
@@ -164,19 +164,19 @@ class DataConfig(object):
     }
     modellings['tt'] = tt
 
-    #v1: the as same as r20.7 and r21 by Jan-26-2018
+    #v1: the as same as r20.7 and r21
     stop = {}
     stop['stop_v1'] = { 
-                     'StopDRDS'          :['PowPy6','DS'],
-                     'StopRadiation'     :['radhi','radlo'],
-                     'StopFragmentation' :['PowPy6','PowHW'],
-                     'StopHardScatter'   :['PowHW','aMCAtNlo'],
+                     'stop DRDS'          :['PowPy6','DS'],
+                     'stop Radiation'     :['radhi','radlo'],
+                     'stop Fragmentation' :['PowPy6','PowHW'],
+                     'stop HardScatter'   :['PowHW','aMCAtNlo'],
     }
     modellings['stop'] = stop
 
     zjets = {}
     zjets['zjets_v1'] = {
-      'zjetsModelling' : ['madgraph','sherpa221'], 
+      'zjets Modelling' : ['madgraph','sherpa221'], 
     }
     modellings['zjets'] = zjets
 

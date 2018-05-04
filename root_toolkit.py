@@ -166,7 +166,7 @@ def GetHistFromNames(tfile,names,is_debug=False):
       sumHist = hist.Clone()
     else:
       sumHist.Add(hist)
-    if is_debug:
+    if self.is_debug:
       print 'tot {0:4.2e} \n \t add {1:} \n \t\t {2:3.2e}'.format(sumHist.Integral(),name,hist.Integral())
   return sumHist
 

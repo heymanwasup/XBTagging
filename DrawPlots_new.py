@@ -13,15 +13,15 @@ import itertools
 R.gROOT.SetBatch(True)
 
 def PrintHist(hist,name=''):
-  print name
+  print '\n\n--------------\n',name
   N = hist.GetNbinsX()
   for n in range(1,N+1):
     c = hist.GetBinContent(n)
     e = hist.GetBinError(n)
     w = hist.GetBinWidth(n)
     l = hist.GetBinLowEdge(n)
-
-    print '{0:2} {3:3.0f} to {4:3.0f}    {1:6.1e} +- {2:3.1e}'.format(n,c,e,l,l+w)
+    print '{0:3} :: {3:3.0f} ~ {4:3.0f} :: \t {1:6.1e} +- {2:3.1e}'.format(n,c,e,l,l+w)
+  print '--------------'
 
 def GetHistContent(hist):
   Nbins = hist.GetNbinsX()
@@ -34,15 +34,12 @@ def GetHistContent(hist):
     binerrors.append(error)
   return bincontents,binerrors 
 
-
 def FillHistContent(hist,val,err=None):
   if err==None: 
     err = [0.]*len(val)
   Nbins = hist.GetNbinsX()
   if not ((len(val)==len(err)) and (len(val)==Nbins)):
-    print '\n\n--------------'
-    print 'WARNING: len of val = {0:}, len of err = {1:}, len of hist = {2}:'.format(len(val),len(err),Nbins)
-    print '--------------'
+    raise ValueError( 'len(val) {0:}, len(err) {1:}, NbinsX {2}:'.format(len(val),len(err),Nbins) )
   for n in range(Nbins):
     hist.SetBinContent(n+1,val[n])
     hist.SetBinError(n+1,err[n])
@@ -268,12 +265,12 @@ class DrawControlPlots(object):
   
   def Print(self,pic_name,dataHist,mcHists,errBand):
     #Prepare the objects going to be drawn on canvas
-    self.Prepare(dataHist, mcHists, errBand)
+    objects = self.GetObjects(dataHist, mcHists, errBand)
 
     #Print the canvas to imagine files
-    self.DrawPlots(pic_name)
+    self.DrawObjects(pic_name,objects)
 
-  def Prepare(self,dataHist,mcHists,errBand):
+  def GetObjects(self,dataHist,mcHists,errBand):
 
     #rebining
     #reunit
@@ -285,14 +282,14 @@ class DrawControlPlots(object):
     ratio,ratioErrorBand = self.ProcessHists(dataHist,mcHists,errBand)
     
     #get thstack
-    hs = self.GetTHStack(mcHists,self.Opts['mcHStack_new'])
+    hs = self.GetTHStack(mcHists,self.Opts['Hist_mcStack'])
     
     #get canvas
     canvas = self.GetCanvas()
 
     #get up/down tpad
-    pad_up = self.GetPad('upPad')
-    pad_do = self.GetPad('downPad')
+    pad_up = self.GetPad('TPad_up')
+    pad_do = self.GetPad('TPad_down')
 
     #get up/down legend
     leg_up = self.GetUpLegend(dataHist,mcHists)
@@ -301,7 +298,7 @@ class DrawControlPlots(object):
     #prepare other objects
    
     #objects going to be draw
-    self.P = { 
+    objects = { 
       'canvas':canvas,
       'pad_up':pad_up,
       'pad_do':pad_do,
@@ -312,7 +309,8 @@ class DrawControlPlots(object):
       'leg_do':leg_do,
       'errBand':ratioErrorBand,
     }
-   
+    return objects
+
   def DrawText(self,text,x,y,color=1,tsize=-1):
     l = R.TLatex()
     if tsize>0:
@@ -322,8 +320,7 @@ class DrawControlPlots(object):
     l.DrawLatex(x,y,text)
 
   #Drawing the objects and print plots
-  def DrawPlots(self,pic_name):
-    P = self.P
+  def DrawObjects(self,pic_name,P):
     P['canvas'].Draw()
 
     P['pad_up'].Draw()
@@ -332,7 +329,7 @@ class DrawControlPlots(object):
     P['pad_up'].cd()
 
     P['hs'].Draw('HIST')
-    self.DecorateObjectNew(P['hs'],self.Opts['mcHStack_new'])
+    self.DecorateObject(P['hs'],self.Opts['Hist_mcStack'])
     P['dataHist'].Draw('esame')
 
     P['leg_up'].Draw('same')
@@ -347,12 +344,14 @@ class DrawControlPlots(object):
     P['errBand'].Draw('E2same')
     P['leg_do'].Draw('same')
 
-    for fmt in self.Opts['fmt']:
-      P['canvas'].Print('{0:}/{1}_{2:}.{3:}'.format(self.output_path,self.Opts['name'],pic_name,fmt))
+    for fmt in self.Opts['Config_general']['fmt']:
+      P['canvas'].Print('{0:}/{1:}.{2:}'.format(self.output_path,pic_name,fmt))
 
   def GetPad(self,name):
     opts = self.Opts[name]
     pad = self.ConstructRootObject(R.TPad,opts)
+    if self.Opts['Config_general']['LogScale'] and name == 'TPad_up' :
+      pad.SetLogy(True)
     return pad
     
   def ConstructRootObject(self,Cls,opts):
@@ -363,55 +362,49 @@ class DrawControlPlots(object):
     else:
       obj = Cls(*constructor)
     if not settings == None:
-      self.DecorateObjectNew(obj,settings)
+      self.DecorateObject(obj,settings)
     return obj
 
   def GetUpLegend(self,dataHist,mcHists):
-    leg = self.ConstructRootObject(R.TLegend,self.Opts['upLeg'])
-    leg.AddEntry(dataHist,'Data','p')
+    leg = self.ConstructRootObject(R.TLegend,self.Opts['Legend_up'])
+    leg.AddEntry(dataHist,self.Opts['Config_general']['dataName'] ,'p')
     for name,hist,_ in mcHists[-1::-1]:
       leg.AddEntry(hist,name,'f')
     return leg
   
   def GetDownLegend(self,ratio,errBand):
-    leg = self.ConstructRootObject(R.TLegend,self.Opts['downLeg'])
-    nameB = self.Opts['errBandName']
+    leg = self.ConstructRootObject(R.TLegend,self.Opts['Legend_down'])
+    nameB = self.Opts['Config_general']['errBandName']
     leg.AddEntry(errBand,nameB,'f')
     return leg
-
-  def Buger1(self,dataHist,name):
-    self.Opts['xRange'] = self.GetXRange(dataHist)
-    print 'xRange {0:}'.format(name)
-    print self.Opts['xRange']
 
   def ProcessHists(self,dataHist,mcHists,errBand):
 
     self.ReBinning(dataHist,mcHists,errBand)
-
     self.ReUnit(dataHist,mcHists,errBand)
 
     sumHist = self.GetMCSum(mcHists)
     ratio = self.GetRatioHist(dataHist,sumHist)
     ratioErrorBand = self.GetRatioErrorBand(errBand)
 
-    if self.Opts['xRange'] == None:
-      self.Opts['xRange'] = self.GetXRange(dataHist)
+    cfg = self.Opts['Config_general']
+    if cfg['xRange'] == None:
+      cfg['xRange'] = self.GetXRange(dataHist)
 
-    isLogy = self.Opts['isLogy']
-    if self.Opts['yRange'] == None:
-      self.Opts['yRange'] = self.GetYRange(dataHist,sumHist,isLogy)
-
-
-    self.SetXRange(self.Opts['xRange'], dataHist, mcHists, ratio, ratioErrorBand)
-    self.SetYRange(self.Opts['yRange'], dataHist)
+    isLogScale = cfg['LogScale']
+    if cfg['yRange'] == None:
+      cfg['yRange'] = self.GetYRange(dataHist,sumHist,isLogScale)
 
 
-    optsBnew = self.Opts['errBandnew']
-    optsRnew = self.Opts['ratioHist_new']
-    optsDnew = self.Opts['dataHist_new']
-    self.DecorateObjectNew(ratio,optsRnew)
-    self.DecorateObjectNew(ratioErrorBand,optsBnew)
-    self.DecorateObjectNew(dataHist,optsDnew)
+    self.SetXRange(cfg['xRange'], dataHist, mcHists, ratio, ratioErrorBand)
+    self.SetYRange(cfg['yRange'], dataHist)
+
+    optsBnew = self.Opts['Hist_ratioErrBand']
+    optsRnew = self.Opts['Hist_ratio']
+    optsDnew = self.Opts['Hist_data']
+    self.DecorateObject(ratio,optsRnew)
+    self.DecorateObject(ratioErrorBand,optsBnew)
+    self.DecorateObject(dataHist,optsDnew)
 
     return ratio,ratioErrorBand
 
@@ -435,34 +428,32 @@ class DrawControlPlots(object):
 
 
   def ReUnit(self,dataHist,mcHists,errBand):
-    if self.Opts['funit'] == None:
+    cfg = self.Opts['Config_general']
+    if cfg['unit'] == None:
       return 
     hists = [dataHist, errBand] + [hist[1] for hist in mcHists]
-    funit = self.Opts['funit']
+    unit = cfg['unit']
     NbinsX = hists[0].GetNbinsX() 
     for hist in hists:
       for n in range(NbinsX):
         c = hist.GetBinContent(n+1)
         e = hist.GetBinError(n+1)
         w = hist.GetBinWidth(n+1)
-        c_new = c/(w/funit) 
-        e_new = e/(w/funit) 
+        c_new = c/(w/unit) 
+        e_new = e/(w/unit) 
         hist.SetBinContent(n+1,c_new)
         hist.SetBinError(n+1,e_new)
 
   def ReBinning(self,dataHist,mcHists,errBand):
-    if self.Opts['xBins'] == None:
-      return dataHist,mcHists,errBand
-
-    xBins = array('d',self.Opts['xBins'])
-
-    dataHist.Rebin(len(xBins)-1,'',xBins).Copy(dataHist)
-
-    for hist in mcHists:
-      hist[1] = hist[1].Rebin(len(xBins)-1,'',xBins)
-    errBand = errBand.Rebin(len(xBins)-1,'',xBins)
-    return dataHist,mcHists,errBand
-
+    xBins = self.Opts['Config_general']['xBins']
+    if xBins != None:
+      xBins = array('d', xBins)
+      FooRebinner = lambda hist:hist.Rebin(len(xBins)-1,'',xBins).Copy(hist)
+      FooRebinner(dataHist)
+      FooRebinner(errBand)
+      for hist in mcHists:
+        FooRebinner( hist[1] )
+  
   def GetMCSum(self,mcHists):
     #mc sum hist
     mc_hists = [hist[1] for hist in mcHists]
@@ -472,9 +463,9 @@ class DrawControlPlots(object):
       sumHist.Add(hist)
     return sumHist
 
-  def GetYRange(self,dataHist,sumHist,isLogy):
+  def GetYRange(self,dataHist,sumHist,isLogScale):
     ymax = max(sumHist.GetMaximum(),dataHist.GetMaximum())
-    if isLogy:
+    if isLogScale:
       yRange = [1.,ymax**1.5]
     else:
       yRange = [0.,ymax*1.5]
@@ -510,40 +501,24 @@ class DrawControlPlots(object):
     for name,hist,color in mcHists:
       thstack.Add(hist)
 
-    Opts['Minimum'] = self.Opts['yRange'][0]
-    Opts['Maximum'] = self.Opts['yRange'][1]
-    Opts['Xaxis']['RangeUser'] = tuple(self.Opts['xRange'])
-
+    cfg = self.Opts['Config_general']
+    Opts['Minimum'] =  [cfg['yRange'][0]]
+    Opts['Maximum'] = [cfg['yRange'][1]]
+    Opts['Xaxis']['RangeUser'] = cfg['xRange']
     return thstack
 
-  def DecorateObjectNew(self,obj,opts):
+  def DecorateObject(self,obj,opts):
     for key,value in opts.iteritems():
       if not isinstance(value,dict):
-        setter = getattr(obj,'Set{0:}'.format(key))
-        if not isinstance(value,tuple):
-          setter(value)
-        else:
-          setter(*value)
+        getattr(obj,'Set{0:}'.format(key))(*value)
       else:
         getter = getattr(obj,'Get{0:}'.format(key))
         _obj = getter()
-        self.DecorateObjectNew(_obj,value)
-
-
-  def DecorateHists(self,dataHist,hs,ratio,errBand):
-
-    optsBnew = self.Opts['errBandnew']
-    optsRnew = self.Opts['ratioHist_new']
-    optsDnew = self.Opts['dataHist_new']
-
-    self.DecorateObjectNew(ratio,optsRnew)
-    self.DecorateObjectNew(errBand,optsBnew)
-    self.DecorateObjectNew(dataHist,optsDnew)
+        self.DecorateObject(_obj,value)
 
   def GetCanvas(self):
-    canvas = R.TCanvas('canvas','canvas',*self.Opts['canvasSize'])
+    canvas = R.TCanvas('canvas','canvas',*self.Opts['Config_general']['canvasSize'])
     return canvas 
-
 
 '''
 Draw the plots

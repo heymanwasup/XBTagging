@@ -10,17 +10,12 @@ import DrawPlots_new as DB
 
 from drawopts import OPts
 
-
-
-
-def DrawProbeJetPt():
-
-  
+def DrawProbeJetPt():  
   input_file = '../input/test.root'
   output_path = '../plots/'
   cfg_path = '../data/Run_CalJet_test.json'
   is_modelling = True
-  is_variation = True
+  is_variation = False
 
   printer = DB.MakeControlPlots(input_file,output_path,cfg_path,is_modelling,is_variation)
 
@@ -31,8 +26,8 @@ def DrawProbeJetPt():
     'Selection'   : ['#font[42]{e #mu 2 jets , #geq 1 tagged}',0.2, 0.7, 1, 0.03*1.58],
   }
   
-  draw_opts = OPts().drawopts
-
+  #draw_opts = OPts().drawopts
+  draw_opts = toolkit.json_load('PlottingConfigs/caljet_probe_jet_pt.json')
   entries_sample = [
     ['z+jets','zjets',R.kBlue],
     ['Misid. leptons','fake',R.kGreen],
@@ -56,7 +51,7 @@ def DrawProbeJetPt():
   mc_var_fmt_flav = '{variation:}/{sample:}_{flav:}_TP_1ptag2jet_MVA100_XMu_em_xEta_PxT85CalJetPt_{variation:}' 
 
   args_sample = {
-    'pic_name':'ProbeJetPt_Sample',
+    'pic_name':'ProbeJetPt_Sample_test',
     'entries':entries_sample,
     'dt_fmt':dt_fmt_sample,
     'mc_fmt':mc_fmt_sample,
@@ -67,7 +62,7 @@ def DrawProbeJetPt():
   }
 
   args_flav = {
-    'pic_name':'ProbeJetPt_Flav',
+    'pic_name':'ProbeJetPt_Flav_test',
     'entries':entries_flav,
     'dt_fmt':dt_fmt_flav,
     'mc_fmt':mc_fmt_flav,
