@@ -1,5 +1,16 @@
 # XBTagging
-A new Btagging processer, has to be cooperate with NtupleProcesser
+A new Btagging processer, has to be cooperate with `NtupleProcesser`
 
-Add a demo to run on cc-lyon
+#Dependency
+pyROOT only, can be used in local computer
 
+
+
+## A demo to run on cc-lyon
+
+	git clone git@github.com:heymanwasup/XBTagging.git
+	cd XBTagging
+	source setup.sh
+	python scripts/run_demo.py
+	
+	
