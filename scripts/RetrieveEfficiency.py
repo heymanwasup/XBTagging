@@ -15,7 +15,7 @@ class RetrieveEfficiency(object):
     run_config = toolkit.json_load(run_cfg_path) 
 
     calibration_config = self.CalibrationConfig(overall_config,run_config)
-    toolkit.DumpToJson(calibration_config,open('test_cfg.json','w'))
+    #toolkit.DumpToJson(calibration_config,open('test_cfg.json','w'))
     isDEBUG=False
     if isDEBUG:
       raise RuntimeError('CCDEBUG')
