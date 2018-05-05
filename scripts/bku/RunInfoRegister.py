@@ -1,8 +1,9 @@
+import toolkit
 class Settings(object):
   def __init__(self):
     self.rtag = 'test'
     self.inputFile  = './input/test.root'
-    self.outputFile = './output/'
+    self.outputPath = './output/'
     self.jet    = 'CalJet'
 
     self.nToys        = 10000
@@ -29,9 +30,9 @@ class Settings(object):
     self.data = 'nominal'
 
     self.modellings = {
-      #'tt'      : 'py8',
-      #'stop'    : 'stop_v1',
-      #'zjets'   : 'zjets_v1',
+      'tt'      : 'py8',
+      'stop'    : 'stop_v1',
+      'zjets'   : 'zjets_v1',
     }
     self.scales = [
       'WtScale',
@@ -40,3 +41,12 @@ class Settings(object):
       'fakeScale',
       'lumiScale',
     ]
+
+def main(cfg_path_fmt):
+  cfg_obj = Settings()
+  cfg_path = cfg_path_fmt.format(cfg_obj.jet,cfg_obj.rtag)
+  toolkit.DumpClassToJson(cfg_obj,cfg_path)
+  return cfg_path
+
+if __name__ == '__main__':
+  main('./data/Settings_{0:}_{1:}.json')

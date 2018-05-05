@@ -1,0 +1,6 @@
+
+setupATLAS
+lsetup root
+
+
+

@@ -1,0 +1,229 @@
+{
+    "Config_general": {
+        "LogScale": true, 
+        "canvasSize": [
+            800, 
+            800
+        ], 
+        "dataName": "Data", 
+        "errBandName": "MC stat.", 
+        "fmt": [
+            "png"
+        ], 
+        "unit": 10.0, 
+        "xBins": [
+            0, 
+            20, 
+            30, 
+            40, 
+            60, 
+            85, 
+            110, 
+            140, 
+            175, 
+            250, 
+            600
+        ], 
+        "xRange": [
+            0, 
+            600
+        ], 
+        "yRange": null
+    }, 
+    "Hist_data": {
+        "MarkerSize": [
+            0.8
+        ]
+    }, 
+    "Hist_mcStack": {
+        "Xaxis": {
+            "LabelOffset": [
+                999
+            ]
+        }, 
+        "Yaxis": {
+            "LabelFont": [
+                42
+            ], 
+            "LabelOffset": [
+                0.005
+            ], 
+            "LabelSize": [
+                0.06
+            ], 
+            "Ndivisions": [
+                505
+            ], 
+            "Title": [
+                "Jets / 10 GeV"
+            ], 
+            "TitleFont": [
+                42
+            ], 
+            "TitleOffset": [
+                1.35
+            ], 
+            "TitleSize": [
+                0.06
+            ]
+        }
+    }, 
+    "Hist_ratio": {
+        "Xaxis": {
+            "LabelFont": [
+                42
+            ], 
+            "LabelOffset": [
+                0.005
+            ], 
+            "LabelSize": [
+                0.11
+            ], 
+            "Ndivisions": [
+                510
+            ], 
+            "Title": [
+                "p_{T}(jet) [GeV]"
+            ], 
+            "TitleFont": [
+                42
+            ], 
+            "TitleOffset": [
+                1.2
+            ], 
+            "TitleSize": [
+                0.13
+            ]
+        }, 
+        "Yaxis": {
+            "LabelFont": [
+                42
+            ], 
+            "LabelOffset": [
+                0.005
+            ], 
+            "LabelSize": [
+                0.08
+            ], 
+            "Ndivisions": [
+                50104
+            ], 
+            "RangeUser": [
+                0.5, 
+                1.5
+            ], 
+            "Title": [
+                "Data/Pred."
+            ], 
+            "TitleFont": [
+                42
+            ], 
+            "TitleOffset": [
+                0.74
+            ], 
+            "TitleSize": [
+                0.11
+            ]
+        }
+    }, 
+    "Hist_ratioErrBand": {
+        "FillColor": [
+            3
+        ], 
+        "FillStyle": [
+            3002
+        ], 
+        "LineWidth": [
+            1
+        ], 
+        "MarkerColor": [
+            3
+        ], 
+        "MarkerSize": [
+            0
+        ]
+    }, 
+    "Legend_down": {
+        "constructor": [
+            0.35, 
+            0.8, 
+            0.7, 
+            0.95
+        ], 
+        "settings": {
+            "TextFont": [
+                62
+            ]
+        }
+    }, 
+    "Legend_up": {
+        "constructor": [
+            0.6, 
+            0.55, 
+            0.9, 
+            0.9
+        ], 
+        "settings": {
+            "BorderSize": [
+                0
+            ], 
+            "FillStyle": [
+                0
+            ], 
+            "NColumns": [
+                1
+            ], 
+            "TextFont": [
+                62
+            ]
+        }
+    }, 
+    "TPad_down": {
+        "constructor": [
+            "downPad", 
+            "downPad", 
+            0, 
+            0, 
+            1, 
+            0.348
+        ], 
+        "settings": {
+            "BottomMargin": [
+                0.4
+            ], 
+            "LeftMargin": [
+                0.15
+            ], 
+            "RightMargin": [
+                0.045
+            ], 
+            "TopMargin": [
+                0.03
+            ]
+        }
+    }, 
+    "TPad_up": {
+        "constructor": [
+            "upPad", 
+            "upPad", 
+            0, 
+            0.355, 
+            1, 
+            1
+        ], 
+        "settings": {
+            "BottomMargin": [
+                0.023
+            ], 
+            "LeftMargin": [
+                0.15
+            ], 
+            "RightMargin": [
+                0.045
+            ], 
+            "TopMargin": [
+                0.05
+            ]
+        }
+    }
+}

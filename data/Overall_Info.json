@@ -1,0 +1,336 @@
+{
+    "binnings": {
+        "CalEta": [
+            0, 
+            30, 
+            60, 
+            90, 
+            140, 
+            200
+        ], 
+        "CalNew": [
+            0, 
+            20, 
+            30, 
+            40, 
+            60, 
+            85, 
+            110, 
+            140, 
+            175, 
+            250, 
+            600
+        ], 
+        "CalOld": [
+            0, 
+            20, 
+            30, 
+            60, 
+            90, 
+            140, 
+            200, 
+            300
+        ], 
+        "Mu": [
+            0, 
+            20, 
+            60, 
+            300
+        ], 
+        "TrkEta": [
+            0, 
+            30, 
+            60, 
+            100, 
+            250
+        ], 
+        "TrkOld": [
+            0, 
+            10, 
+            20, 
+            30, 
+            60, 
+            100, 
+            250
+        ]
+    }, 
+    "cats": {
+        "etaCalib": {
+            "eta": [
+                "_0_7Eta", 
+                "_7_15Eta", 
+                "_15Eta"
+            ], 
+            "mu": [
+                "XMu"
+            ]
+        }, 
+        "muCalib": {
+            "eta": [
+                "xEta"
+            ], 
+            "mu": [
+                "_0_18Mu", 
+                "_18_25Mu", 
+                "_25_50Mu"
+            ]
+        }, 
+        "ptCalib": {
+            "eta": [
+                "xEta"
+            ], 
+            "mu": [
+                "XMu"
+            ]
+        }
+    }, 
+    "data": {
+        "nominal": [
+            "data"
+        ]
+    }, 
+    "format": {
+        "r21a1": {
+            "nominal": {
+                "hist": "{var:}/{sample:}_TP_1ptag2jet_MVA{mva:}_{mu:}_em_{eta:}_{tp:}{wp:}{jet:}Pt", 
+                "var": "SysNominal"
+            }, 
+            "variation": {
+                "hist": "{var:}/{sample:}_TP_1ptag2jet_MVA{mva:}_{mu:}_em_{eta:}_{tp:}{wp:}{jet:}Pt_{var:}", 
+                "var": "(.*[^_])(_+[0-9]*)(up|down)"
+            }
+        }
+    }, 
+    "modellings": {
+        "stop": {
+            "stop_v1": {
+                "StopDRDS": [
+                    "PowPy6", 
+                    "DS"
+                ], 
+                "StopFragmentation": [
+                    "PowPy6", 
+                    "PowHW"
+                ], 
+                "StopHardScatter": [
+                    "PowHW", 
+                    "aMCAtNlo"
+                ], 
+                "StopRadiation": [
+                    "radhi", 
+                    "radlo"
+                ]
+            }
+        }, 
+        "tt": {
+            "py6": {
+                "tt Fragmentation": [
+                    "py6", 
+                    "py6_PowHW"
+                ], 
+                "tt HardScatter": [
+                    "py6_aMcAtNloHW", 
+                    "py6_PowHW"
+                ], 
+                "tt PDFRW": [
+                    "py6_aMcAtNloHW", 
+                    "py6_PDFRW"
+                ], 
+                "tt Radiation": [
+                    "py6_radhi", 
+                    "py6_radlo"
+                ]
+            }, 
+            "py8": {
+                "tt Fragmentation": [
+                    "py8", 
+                    "py8_aMcAtNloPy8"
+                ], 
+                "tt HardScatter": [
+                    "py8", 
+                    "py8_aMcAtNloPy8"
+                ], 
+                "tt Radiation": [
+                    "py8_radhi", 
+                    "py8_radlo"
+                ]
+            }
+        }, 
+        "zjets": {
+            "zjets_v1": {
+                "zjetsModelling": [
+                    "madgraph", 
+                    "sherpa221"
+                ]
+            }
+        }
+    }, 
+    "samples": {
+        "diboson": {
+            "PowPy8": [
+                "WW_Pw", 
+                "ZZ_Pw", 
+                "WZ_Pw"
+            ], 
+            "sherpa": [
+                "diboson_sherpa"
+            ]
+        }, 
+        "fake": {
+            "nominal": [
+                "fake"
+            ]
+        }, 
+        "stop": {
+            "DS": [
+                "stop_Wt_DS"
+            ], 
+            "PowHW": [
+                "stop_Wt_PowHer"
+            ], 
+            "PowPy6": [
+                "stop_s", 
+                "stop_t", 
+                "stop_Wt"
+            ], 
+            "aMCAtNlo": [
+                "stop_Wt_McAtNlo"
+            ], 
+            "radhi": [
+                "stop_Wt_RadHi"
+            ], 
+            "radlo": [
+                "stop_Wt_RadLo"
+            ]
+        }, 
+        "tt": {
+            "py6": [
+                "ttbar"
+            ], 
+            "py6_PDFRW": [
+                "ttbaraMcAtNloHW_PDFRW"
+            ], 
+            "py6_PowHW": [
+                "ttbarPowHW_UEEE5"
+            ], 
+            "py6_aMcAtNloHW": [
+                "ttbaraMcAtNloHW"
+            ], 
+            "py6_radhi": [
+                "ttbar_radhi"
+            ], 
+            "py6_radlo": [
+                "ttbar_radlo"
+            ], 
+            "py8": [
+                "ttbarPy8"
+            ], 
+            "py8_PowHW": [
+                "ttbarPowHW_H7UE"
+            ], 
+            "py8_aMcAtNloPy8": [
+                "ttbaraMcAtNloPy8"
+            ], 
+            "py8_radhi": [
+                "ttbarPy8_radhi"
+            ], 
+            "py8_radlo": [
+                "ttbarPy8_radlo"
+            ]
+        }, 
+        "zjets": {
+            "madgraph": [
+                "MadZee", 
+                "MadZmumu", 
+                "MadZtautau"
+            ], 
+            "sherpa221": [
+                "Zee", 
+                "Zmm", 
+                "Ztt"
+            ]
+        }
+    }, 
+    "scales": {
+        "WtScale": {
+            "keys": {
+                "sample": ".*Wt.*"
+            }, 
+            "samples": "stop", 
+            "scale": [
+                0.5, 
+                1.5
+            ]
+        }, 
+        "dibosonScale": {
+            "samples": "diboson", 
+            "scale": [
+                0.5, 
+                1.5
+            ]
+        }, 
+        "fakeScale": {
+            "samples": "fake", 
+            "scale": [
+                0.5, 
+                1.5
+            ]
+        }, 
+        "lumiScale": {
+            "samples": ".*", 
+            "scale": [
+                1.032, 
+                9.968
+            ]
+        }, 
+        "mistagCal": {
+            "keys": {
+                "jet": "Cal.*", 
+                "tp": "PjP"
+            }, 
+            "scale": [
+                0, 
+                2.3
+            ]
+        }, 
+        "mistagTrk": {
+            "keys": {
+                "jet": "Trk.*", 
+                "tp": "PjP"
+            }, 
+            "scale": [
+                0, 
+                2.5
+            ]
+        }, 
+        "ntBCal": {
+            "keys": {
+                "jet": "Cal.*", 
+                "tp": "PbP"
+            }, 
+            "samples": "(?!tt)", 
+            "scale": [
+                0.84, 
+                1.2
+            ]
+        }, 
+        "ntBTrk": {
+            "keys": {
+                "jet": "Trk.*", 
+                "tp": "PbP"
+            }, 
+            "samples": "(?!tt)", 
+            "scale": [
+                0.84, 
+                1.2
+            ]
+        }, 
+        "zjetsScale": {
+            "samples": "zjets", 
+            "scale": [
+                0.5, 
+                1.5
+            ]
+        }
+    }
+}
