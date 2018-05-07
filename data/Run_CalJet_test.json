@@ -1,3 +1,4 @@
+
 {
     "binnings": "CalNew", 
     "cats": "ptCalib", 
@@ -19,7 +20,7 @@
     "modellings": {
     },
     "nToys": 10000, 
-    "onlyNominal": false, 
+    "onlyNominal": true, 
     "rebinning": false, 
     "nominals": {
         "diboson": "PowPy8", 
