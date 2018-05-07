@@ -1,9 +1,31 @@
 import toolkit
 import copy
-class OPts(object):
+class Config_draw(object):
   def __init__(self):
-    self.drawopts = self.ProbeJetPt()
     pass
+
+  def GetConfig_default(self):
+    config = {
+      'Config_general': {
+      'xRange':[0,600],
+      'yRange':None,
+      'xBins':[0,20,30,40,60,85,110,140,175,250,600],
+      'fmt':['png'],
+      'canvasSize':[800,800],
+      'unit':10.,
+      'LogScale':True,
+      'errBandName':'MC stat.',
+      'dataName':'Data',
+    }
+    }
+    
+    
+
+
+
+
+    self.ProbeJetPt()
+
     
   def ProbeJetPt(self):
     uppad = self.GetUpPad()

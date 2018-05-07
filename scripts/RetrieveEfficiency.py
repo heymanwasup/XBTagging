@@ -169,6 +169,7 @@ class Caliber(object):
     while self.Next():
       print self.CurrentItem
       print self.CurrentItem_Str
+      time.sleep(5)
       self.PerformTagAndProbe()
 
   def PerformTagAndProbe(self):
@@ -360,10 +361,24 @@ class Caliber(object):
       tot = [t if t>0 else 0 for t in tot ]
       pas = [p if p>0 else 0 for p in pas ]
       gaus = lambda x,y:r.Gaus(x,y) if r.Gaus(x,y)>0 else 0
+      ratio = []
+      for n in range(len(tot)):
+        if tot[n]==0:
+          ra = 0
+        elif tot[n]<pas[n]:
+          ra = 1.
+        else:
+          ra = float(pas[n])/tot[n]
+        ratio.append(ra)
 
-      ratio = [ float(pas[n])/tot[n] if tot[n]!=0 else 0 for n in range(len(pas)) ]
+      
       p = lambda x:list(map(lambda y:'{0:.3f}'.format(y),x))
-      paserr = list(map(lambda x,y:x*math.sqrt(y*(1-y)),toterr,ratio))
+      try:
+        paserr = list(map(lambda x,y:x*math.sqrt(y*(1-y)),toterr,ratio))
+      except ValueError:
+        print ratio
+        print tot
+        print pas
       Rtot = list(map(gaus,tot,toterr))
       Rpas = list(map(lambda x,y,z:gaus(x*y,z),Rtot,ratio,paserr))
       return Rtot,Rpas
@@ -525,10 +540,10 @@ class Caliber(object):
       toolkit.DumpToJson(data,f)    
 
   def LoadFromJson(self,name,Hist):
-    json_name = '%s/%s.json'%(self.outputDir,name)
     def Wraper(fun): 
       @functools.wraps(fun)
       def newFun(*args,**kw):
+        json_name = '%s/%s_%s.json'%(self.outputDir,name,self.CurrentItem_Str)
         if not self.isLoadRawFromCache or not os.path.isfile(json_name):
           self.STDOUT('Producing json file :','\t%s'%(json_name))
           res_h = fun(*args,**kw)
@@ -601,16 +616,17 @@ def GetHistClass(name,nbins):
     raise ValueError('histogram name not found: {0:}'.format(name))
   return Hist
 
-def test(name,input_file,output_path,run_cfg,isLoadRawFromCache):
-  '''
-  name = 'test'
+def test():#name,input_file,output_path,run_cfg,isLoadRawFromCache):
+  
+  name = 'DEBUG'
   input_file = './input/test.root'
   output_path = './output'
-  run_cfg = './data/Settins_CalJet_test2.json'
-  isLoadRawFromCache = True
-  '''
+  run_cfg = './data/Run_CalJet_test.json'
+  isLoadRawFromCache = False
+
+  #project_name,input_file,output_path,run_config,isLoadRawFromCache
   worker = RetrieveEfficiency(name,input_file,output_path,run_cfg,isLoadRawFromCache)
   worker.Work() 
 
 if __name__ == '__main__':
-   pass
+   test()

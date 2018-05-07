@@ -256,7 +256,7 @@ Drawing those histograms
 class DrawControlPlots(object):
   def __init__(self,output_path):
     self.output_path = output_path
-
+    self.y_max_scale = 1.6
   def SetDrawOpts(self,opts):
     self.Opts = copy.deepcopy(opts)
 
@@ -319,7 +319,6 @@ class DrawControlPlots(object):
     l.SetTextColor(color)
     l.DrawLatex(x,y,text)
 
-  #Drawing the objects and print plots
   def DrawObjects(self,pic_name,P):
     P['canvas'].Draw()
 
@@ -368,7 +367,9 @@ class DrawControlPlots(object):
   def GetUpLegend(self,dataHist,mcHists):
     leg = self.ConstructRootObject(R.TLegend,self.Opts['Legend_up'])
     leg.AddEntry(dataHist,self.Opts['Config_general']['dataName'] ,'p')
-    for name,hist,_ in mcHists[-1::-1]:
+    if len(mcHists)>5:
+      leg.SetNColumns(2)
+    for name,hist,_ in mcHists:
       leg.AddEntry(hist,name,'f')
     return leg
   
@@ -426,7 +427,6 @@ class DrawControlPlots(object):
 
     return h_ratio_errb
 
-
   def ReUnit(self,dataHist,mcHists,errBand):
     cfg = self.Opts['Config_general']
     if cfg['unit'] == None:
@@ -466,9 +466,9 @@ class DrawControlPlots(object):
   def GetYRange(self,dataHist,sumHist,isLogScale):
     ymax = max(sumHist.GetMaximum(),dataHist.GetMaximum())
     if isLogScale:
-      yRange = [1.,ymax**1.5]
+      yRange = [1.,ymax**self.y_max_scale]
     else:
-      yRange = [0.,ymax*1.5]
+      yRange = [0.,ymax*self.y_max_scale]
     return yRange
 
   def GetXRange(self,dataHist):
@@ -493,12 +493,11 @@ class DrawControlPlots(object):
     ratio.Divide(dataHist,sumHist)
     return ratio
 
-
   def GetTHStack(self,mcHists,Opts):
     thstack = R.THStack('','')
     for name,hist,color in mcHists:
       hist.SetFillColor(color)
-    for name,hist,color in mcHists:
+    for name,hist,color in mcHists[-1::-1]:
       thstack.Add(hist)
 
     cfg = self.Opts['Config_general']
@@ -604,6 +603,8 @@ class MakeControlPlots(object):
 
     #draw the histograms
     mc_hists_ordered = [ [entry[0],mc_hists[entry[0]],entry[2]] for entry in entries ]
+    for entry_order in mc_hists_ordered:
+      print entry_order[0]
     self.plots_drawer.SetDrawOpts(draw_opts)
     self.plots_drawer.SetDrawTexts(texts)
     self.plots_drawer.Print(pic_name,dt_hist,mc_hists_ordered,errband_hist)
@@ -617,18 +618,19 @@ def GetSumOfErrors(errors):
     return sum_of_err
 
 class BtaggingPlots(object):
-    def __init__(self,output_path):
+    def __init__(self,output_path,name):
         self.scale_x = 1.05
         self.output_path = output_path
+        self.name = name
         toolkit.mkdir(output_path)
-    def DrawSFcomparison(self,input_json_A,input_json_B,cfg):
+    def DrawSFcomparison(self,input_json_A,input_json_B,nameA,nameB,cfg,texts):
         data_A = self.ExtractData_SF(input_json_A,0.05)
         data_B = self.ExtractData_SF(input_json_B)
 
-        objects = self.GetObjects_SFcomparison(data_A,data_B,cfg)
-        self.DrawObjects_SFcomparison(objects,cfg)
+        objects = self.GetObjects_SFcomparison(data_A,data_B,nameA,nameB,cfg)
+        self.DrawObjects_SFcomparison(objects,cfg,texts)
    
-    def GetObjects_SFcomparison(self,data_A,data_B,cfg):                
+    def GetObjects_SFcomparison(self,data_A,data_B,nameA,nameB,cfg):                
         objects_A = self.GetObjects_SF(data_A,cfg)
         objects_A['central'].SetLineColor(R.kBlue)
         objects_A['central'].SetMarkerColor(R.kBlue)
@@ -647,7 +649,7 @@ class BtaggingPlots(object):
         errband.Add(objects_A['errband'])
         errband.Add(objects_B['errband'])
     
-        legend = self.GetLegend_SFcomparison(objects_A['central'],objects_A['errband'],objects_B['central'],objects_B['errband'],cfg)
+        legend = self.GetLegend_SFcomparison(objects_A['central'],objects_A['errband'],objects_B['central'],objects_B['errband'],nameA,nameB,cfg)
         
         objects = {
             'canvas':objects_B['canvas'],
@@ -659,7 +661,7 @@ class BtaggingPlots(object):
         }
         return objects
    
-    def DrawObjects_SFcomparison(self,objects,cfg):
+    def DrawObjects_SFcomparison(self,objects,cfg,texts):
         objects['canvas'].Draw()
 
         objects['errband'].Draw('A2')
@@ -669,11 +671,11 @@ class BtaggingPlots(object):
         objects['central_B'].Draw('PZSAME')
         objects['legend'].Draw()
 
-        for text in cfg['texts']:
+        for text in texts:
             self.DrawText(*text)
 
         for fmt in cfg['fmt']:
-            objects['canvas'].Print('{0:}/{1:}.{2:}'.format(self.output_path,cfg['name'],fmt))
+            objects['canvas'].Print('{0:}/comparison_sf_{1:}.{2:}'.format(self.output_path,self.name,fmt))
     
     def DecorateErrBand_SFcomparison(self,errband,cfg):
         xax = errband.GetXaxis()
@@ -685,12 +687,12 @@ class BtaggingPlots(object):
         yax.SetRangeUser(*cfg['yRange'])
         yax.SetTitle(cfg['yTitle'])      
 
-    def GetLegend_SFcomparison(self,central_A,errband_A,central_B,errband_B,cfg):
+    def GetLegend_SFcomparison(self,central_A,errband_A,central_B,errband_B,nameA,nameB,cfg):
         legend = R.TLegend(*cfg['LegendPosition'])
-        cA = '{0:} {1:}'.format(cfg['nameA'],cfg['errbarName'])
-        eA = '{0:} {1:}'.format(cfg['nameA'],cfg['errbandName'])
-        cB = '{0:} {1:}'.format(cfg['nameB'],cfg['errbarName'])
-        eB = '{0:} {1:}'.format(cfg['nameB'],cfg['errbandName'])
+        cA = '{0:} {1:}'.format(nameA,cfg['errbarName'])
+        eA = '{0:} {1:}'.format(nameA,cfg['errbandName'])
+        cB = '{0:} {1:}'.format(nameB,cfg['errbarName'])
+        eB = '{0:} {1:}'.format(nameB,cfg['errbandName'])
         legend.AddEntry(central_A,cA,'lep')
         legend.AddEntry(errband_A,eA,'f')
         
@@ -703,10 +705,11 @@ class BtaggingPlots(object):
         legend.SetBorderSize(0)
         return legend    
     
-    def DrawSF(self,input_json,cfg):
+    def DrawSF(self,input_json,cfg,texts):
         data = self.ExtractData_SF(input_json)
         objects = self.GetObjects_SF(data,cfg)
-        self.DrawObjects_SF(objects,cfg)
+
+        self.DrawObjects_SF(objects,cfg,texts)
     
     def ExtractData_SF(self,input_json,shift=0.):
         results = toolkit.json_load(input_json)['sf']
@@ -737,18 +740,18 @@ class BtaggingPlots(object):
         }
         return objects
 
-    def DrawObjects_SF(self,objects,cfg):
+    def DrawObjects_SF(self,objects,cfg,texts):
         objects['canvas'].Draw()
         objects['errband'].Draw('A2')
         objects['central'].Draw('PZSAME')
         objects['legend'].Draw()
         objects['canvas'].Update()
 
-        for text in cfg['texts']:
+        for text in texts:
             self.DrawText(*text)
 
         for fmt in cfg['fmt']:
-            objects['canvas'].Print('{0:}/{1:}.{2:}'.format(self.output_path,cfg['name'],fmt))
+            objects['canvas'].Print('{0:}/sf_{1:}.{2:}'.format(self.output_path,self.name,fmt))
 
     def GetErrbandGraph_SF(self,sf,tot_err,cfg):
         error_graph = self.GetErrorGraph(sf,tot_err,cfg['xBins'])
@@ -784,10 +787,10 @@ class BtaggingPlots(object):
         central_graph.SetLineWidth(2)
         return central_graph
 
-    def DrawEff(self,input_json,cfg):
+    def DrawEff(self,input_json,cfg,texts):
         data = self.ExtractData_Eff(input_json)
         objects = self.GetObjects_Eff(data,cfg)
-        self.DrawObjects_Eff(objects,cfg)
+        self.DrawObjects_Eff(objects,cfg,texts)
     
     def ExtractData_Eff(self,input_json):
         results = toolkit.json_load(input_json)
@@ -816,18 +819,18 @@ class BtaggingPlots(object):
         }
         return objects
 
-    def DrawObjects_Eff(self,objects,cfg):
+    def DrawObjects_Eff(self,objects,cfg,texts):
         objects['canvas'].Draw()
         objects['g_e_mc'].Draw('APZ')
         objects['g_e_dt'].Draw('PZSAME')
 
         objects['legend'].Draw()
         
-        for text in cfg['texts']:
+        for text in texts:
             self.DrawText(*text)        
 
         for fmt in cfg['fmt']:
-            objects['canvas'].Print('{0:}/{1:}.{2:}'.format(self.output_path,cfg['name'],fmt))
+            objects['canvas'].Print('{0:}/eff_{1:}.{2:}'.format(self.output_path,self.name,fmt))
 
     def GetGraphEffData(self,central,error,cfg):
         g_e_dt = self.GetErrorGraph(central,error,cfg['xBins'])
@@ -895,3 +898,42 @@ class BtaggingPlots(object):
         canvas = R.TCanvas('c1','c1',800,800)
         canvas.SetTopMargin(0.05)
         return canvas
+
+class DrawAPI(object):
+  def __init__(self,name,input_file,output_path,cfg_path,is_modelling,is_variation):
+
+    self.printer = MakeControlPlots(name,input_file,output_path,cfg_path,is_modelling,is_variation)
+
+    errbandName = 'MC stat.'
+    if is_modelling:
+      errbandName += ' + modellings'
+    if is_variation:
+      errbandName += ' + syst. unc.'
+
+    settings = {
+      'canvasSize':[800,800],
+      'errBandName':errbandName,
+      'fmt':['png'],
+      'dataName':'Data',
+    }
+
+    self.config_default = toolkit.json_load('./data/PlotInfo_default.json')
+    self.config_default['Config_general'] = settings
+
+
+  def Draw(self,pic_name,hist_name,config_user,texts,fmts,entries,is_flav):
+    kw= dict(name=hist_name)
+    args = {
+      'dt_fmt':toolkit.PartialFormat(fmts['dt_fmt'],kw),
+      'mc_fmt':toolkit.PartialFormat(fmts['mc_fmt'],kw),
+      'mc_var_fmt':toolkit.PartialFormat(fmts['mc_var_fmt'],kw),
+    }
+
+    args['texts'] = texts
+    args['is_flav'] = is_flav
+    args['entries'] = entries
+    args['pic_name'] = pic_name
+
+    config = toolkit.MergeDict_recursive(self.config_default, config_user)
+    args['draw_opts'] = config
+    self.printer.DrawPlots(**args)        

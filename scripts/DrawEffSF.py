@@ -19,8 +19,6 @@ def test_sf(project_name,input_json,output_path):
         ['#font[42]{#sqrt{s} = 13 TeV, 79.9 fb^{-1}}',0.5,0.78,0.04],
     ]
 
-
-
     cfg = {
         'errbarName':'Stat. Uncertainty',
         'errbandName':'Total Uncertainty',

@@ -16,6 +16,8 @@ import operator
 import numpy as np
 from copy import deepcopy,copy
 
+
+
 class ALG(object):
   iters = staticmethod( \
       lambda dt : \
@@ -76,6 +78,11 @@ class ALG(object):
     alg = wraper(bi_alg)
     res = self.Map(stop,alg,*args)
     return res
+
+
+
+
+
 
 class PrintPriority(object):
   priorities = []
@@ -234,6 +241,7 @@ def PartialFormat(fmt,keys):
   keys_used = {key:keys[key] for key in keys}
   for k in invariant:
     keys_used[k] = kf_map[k]   
+
   res = fmt.format(**keys_used)
   return res
   
@@ -268,10 +276,42 @@ def MergeDict(A,B):
   Res.update(B)
   return Res
 
-  
+def MergeDict_recursive(Origin,Extern):
+  def merge(origin,extern,res):
+    for name,value in extern.iteritems():
+      if name in origin:
+        if isinstance(value, dict):
+          if not isinstance(origin[name], dict):
+            raise ValueError('not compatible')
+          merge(origin[name], value, res[name])
+        else:
+          res[name] = value
+      else:
+        res[name] = value
+
+  if not (isinstance(Origin, dict) and isinstance(Extern, dict)):
+    raise ValueError('type should be dict both')
+  res = deepcopy(Origin)
+  merge(Origin, Extern,res)
+  return res
+
 def main():
-  res = PartialFormat('{key1:},{key2}',{'key3':10})
+  Origin = {
+    'L1':{
+      'L2':{
+        'l3':3,
+      }
+    }
+  }
+  Extern = {
+    'L1':{
+      'L2':{
+        'l2':2,
+        'l3':4
+      },
+    },
+  }
+  res = MergeDict_recurssive(Origin, Extern)
   print res
-  
 if __name__ == '__main__':
   main()
