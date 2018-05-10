@@ -182,8 +182,13 @@ class RetrieveHists(object):
         do = self.GetHist(systs[0])
         up = self.GetHist(systs[1])
       except RuntimeError:
-        print 'skiped systematic : {0:}'.format(name)
+        print '\n\n','-'*18
+        print '{0:} \t: skiped systematic in errBand \t: {1:}'.format(self.pic_name,name)
+        print 'down',systs[0][0],'......'
+        print 'up',systs[1][0],'......'
+        print '-'*18
         continue
+
 
       systHists[name] = [do,up]
     return systHists
@@ -265,6 +270,7 @@ class DrawControlPlots(object):
   
   def Print(self,pic_name,dataHist,mcHists,errBand):
     #Prepare the objects going to be drawn on canvas
+    self.pic_name = pic_name
     objects = self.GetObjects(dataHist, mcHists, errBand)
 
     #Print the canvas to imagine files
@@ -523,22 +529,23 @@ class DrawControlPlots(object):
 Draw the plots
 '''
 class MakeControlPlots(object):
-  def __init__(self,name,tfile_path,output_path,run_cfg_path,is_modelling,is_variation):
+  def __init__(self,tfile_path,output_path,run_cfg_path):
     run_config = toolkit.json_load(run_cfg_path)
     overall_cfg = toolkit.json_load('./data/Overall_Info.json')
 
     tfile = R.TFile(tfile_path,'read')
-    args = self.ReadConfig(overall_cfg,run_config,is_variation,tfile)
+    args = self.ReadConfig(overall_cfg,run_config,tfile)
  
-    outputDir = '{0:}/{1:}/plots_ControlPlots'.format(output_path,name)
+    outputDir = '{0:}/plots_ControlPlots'.format(output_path)
     toolkit.mkdir(outputDir)
 
     self.name_maker = RetrieveHistsNames(**args)
     self.hist_maker = RetrieveHists(tfile)
     self.plots_drawer = DrawControlPlots(outputDir)        
 
-  def ReadConfig(self,overall_cfg,run_cfg,is_variation,tfile):
+  def ReadConfig(self,overall_cfg,run_cfg,tfile):
     args = {}
+
     args['data'] = overall_cfg['data'][run_cfg['data']]
     args['nominals'] = run_cfg['nominals']
     args['modellings'] = {}#{sample:overall_cfg['modellings'][sample][version] for sample,version in run_cfg['modellings'].iteritems()}
@@ -546,7 +553,8 @@ class MakeControlPlots(object):
     hist_name_format = overall_cfg['format'][run_cfg['format']]
     ptn_nominal = hist_name_format['nominal']['var']
     ptn_variation = hist_name_format['variation']['var']
-    variations = root_toolkit.GetVarsList(tfile,ptn_nominal,ptn_variation) if is_variation else {}
+
+    variations = root_toolkit.GetVarsList(tfile,ptn_nominal,ptn_variation) if not run_cfg['onlyNominal'] else {}
     
     args['ptn_nominal'] = ptn_nominal
     args['variations'] = variations
@@ -603,8 +611,7 @@ class MakeControlPlots(object):
 
     #draw the histograms
     mc_hists_ordered = [ [entry[0],mc_hists[entry[0]],entry[2]] for entry in entries ]
-    for entry_order in mc_hists_ordered:
-      print entry_order[0]
+
     self.plots_drawer.SetDrawOpts(draw_opts)
     self.plots_drawer.SetDrawTexts(texts)
     self.plots_drawer.Print(pic_name,dt_hist,mc_hists_ordered,errband_hist)
@@ -618,18 +625,18 @@ def GetSumOfErrors(errors):
     return sum_of_err
 
 class BtaggingPlots(object):
-    def __init__(self,output_path,name):
+    def __init__(self,output_path):
         self.scale_x = 1.05
-        self.output_path = output_path
-        self.name = name
+        self.output_path = '{0:}/plots_BtaggingPlots'.format(output_path)
+        
         toolkit.mkdir(output_path)
-    def DrawSFcomparison(self,input_json_A,input_json_B,nameA,nameB,cfg,texts):
+    def DrawSFcomparison(self,plot_name,input_json_A,input_json_B,nameA,nameB,cfg,texts):
         data_A = self.ExtractData_SF(input_json_A,0.05)
         data_B = self.ExtractData_SF(input_json_B)
 
         objects = self.GetObjects_SFcomparison(data_A,data_B,nameA,nameB,cfg)
-        self.DrawObjects_SFcomparison(objects,cfg,texts)
-   
+        self.DrawObjects_SFcomparison(plot_name,objects,cfg,texts)
+        
     def GetObjects_SFcomparison(self,data_A,data_B,nameA,nameB,cfg):                
         objects_A = self.GetObjects_SF(data_A,cfg)
         objects_A['central'].SetLineColor(R.kBlue)
@@ -661,7 +668,7 @@ class BtaggingPlots(object):
         }
         return objects
    
-    def DrawObjects_SFcomparison(self,objects,cfg,texts):
+    def DrawObjects_SFcomparison(self,plot_name,objects,cfg,texts):
         objects['canvas'].Draw()
 
         objects['errband'].Draw('A2')
@@ -675,7 +682,7 @@ class BtaggingPlots(object):
             self.DrawText(*text)
 
         for fmt in cfg['fmt']:
-            objects['canvas'].Print('{0:}/comparison_sf_{1:}.{2:}'.format(self.output_path,self.name,fmt))
+            objects['canvas'].Print('{0:}/comparison_sf_{1:}.{2:}'.format(self.output_path,plot_name,fmt))
     
     def DecorateErrBand_SFcomparison(self,errband,cfg):
         xax = errband.GetXaxis()
@@ -705,11 +712,11 @@ class BtaggingPlots(object):
         legend.SetBorderSize(0)
         return legend    
     
-    def DrawSF(self,input_json,cfg,texts):
+    def DrawSF(self,plot_name,input_json,cfg,texts):
         data = self.ExtractData_SF(input_json)
         objects = self.GetObjects_SF(data,cfg)
 
-        self.DrawObjects_SF(objects,cfg,texts)
+        self.DrawObjects_SF(plot_name,objects,cfg,texts)
     
     def ExtractData_SF(self,input_json,shift=0.):
         results = toolkit.json_load(input_json)['sf']
@@ -740,7 +747,7 @@ class BtaggingPlots(object):
         }
         return objects
 
-    def DrawObjects_SF(self,objects,cfg,texts):
+    def DrawObjects_SF(self,pot_name,objects,cfg,texts):
         objects['canvas'].Draw()
         objects['errband'].Draw('A2')
         objects['central'].Draw('PZSAME')
@@ -751,7 +758,7 @@ class BtaggingPlots(object):
             self.DrawText(*text)
 
         for fmt in cfg['fmt']:
-            objects['canvas'].Print('{0:}/sf_{1:}.{2:}'.format(self.output_path,self.name,fmt))
+            objects['canvas'].Print('{0:}/sf_{1:}.{2:}'.format(self.output_path,plot_name,fmt))
 
     def GetErrbandGraph_SF(self,sf,tot_err,cfg):
         error_graph = self.GetErrorGraph(sf,tot_err,cfg['xBins'])
@@ -787,10 +794,10 @@ class BtaggingPlots(object):
         central_graph.SetLineWidth(2)
         return central_graph
 
-    def DrawEff(self,input_json,cfg,texts):
+    def DrawEff(self,plot_name,input_json,cfg,texts):
         data = self.ExtractData_Eff(input_json)
         objects = self.GetObjects_Eff(data,cfg)
-        self.DrawObjects_Eff(objects,cfg,texts)
+        self.DrawObjects_Eff(plot_name,objects,cfg,texts)
     
     def ExtractData_Eff(self,input_json):
         results = toolkit.json_load(input_json)
@@ -819,7 +826,7 @@ class BtaggingPlots(object):
         }
         return objects
 
-    def DrawObjects_Eff(self,objects,cfg,texts):
+    def DrawObjects_Eff(self,plot_name,objects,cfg,texts):
         objects['canvas'].Draw()
         objects['g_e_mc'].Draw('APZ')
         objects['g_e_dt'].Draw('PZSAME')
@@ -830,7 +837,7 @@ class BtaggingPlots(object):
             self.DrawText(*text)        
 
         for fmt in cfg['fmt']:
-            objects['canvas'].Print('{0:}/eff_{1:}.{2:}'.format(self.output_path,self.name,fmt))
+            objects['canvas'].Print('{0:}/eff_{1:}.{2:}'.format(self.output_path,plot_name,fmt))
 
     def GetGraphEffData(self,central,error,cfg):
         g_e_dt = self.GetErrorGraph(central,error,cfg['xBins'])
@@ -900,25 +907,25 @@ class BtaggingPlots(object):
         return canvas
 
 class DrawAPI(object):
-  def __init__(self,name,input_file,output_path,cfg_path,is_modelling,is_variation):
+  def __init__(self,input_file,output_path,cfg_path):
 
-    self.printer = MakeControlPlots(name,input_file,output_path,cfg_path,is_modelling,is_variation)
+    self.printer = MakeControlPlots(input_file,output_path,cfg_path)
 
-    errbandName = 'MC stat.'
-    if is_modelling:
-      errbandName += ' + modellings'
-    if is_variation:
-      errbandName += ' + syst. unc.'
+    errBandName = 'MC stat.'
+    cfg = toolkit.json_load(cfg_path)
+    if not cfg['onlyNominal']:
+      errBandName += ' + syst. unc.'
+    if len(cfg['modellings'])!=0:
+      samples = ' / '.join(cfg['modellings'].keys())
+      errBandName += ' + {0:} modellings'.format(samples)
 
+    #can overide some settings in config file
     settings = {
-      'canvasSize':[800,800],
-      'errBandName':errbandName,
-      'fmt':['png'],
-      'dataName':'Data',
+      'errBandName': errBandName,
     }
 
-    self.config_default = toolkit.json_load('./data/PlotInfo_default.json')
-    self.config_default['Config_general'] = settings
+    self.config_default = toolkit.json_load('./data/PlottingConfig_default.json')
+    self.config_default['Config_general'].update(settings)
 
 
   def Draw(self,pic_name,hist_name,config_user,texts,fmts,entries,is_flav):
@@ -936,4 +943,4 @@ class DrawAPI(object):
 
     config = toolkit.MergeDict_recursive(self.config_default, config_user)
     args['draw_opts'] = config
-    self.printer.DrawPlots(**args)        
+    self.printer.DrawPlots(**args) 

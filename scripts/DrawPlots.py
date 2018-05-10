@@ -9,7 +9,8 @@ import DrawBox
 
 
 
-def MakeControlPlots(name, input_file, output_path, cfg_path, is_modelling, is_variation):
+def MakeControlPlots(input_file, output_path, cfg_path):
+
 
   entries = {}
   entries['sample'] = [
@@ -119,7 +120,7 @@ def MakeControlPlots(name, input_file, output_path, cfg_path, is_modelling, is_v
   event_mll_histname = 'TP_1ptag2jet_MVA100_XMu_em_xEta_Mll'
 
 
-  draw_api = DrawBox.DrawAPI(name, input_file, output_path, cfg_path, is_modelling, is_variation)
+  draw_api = DrawBox.DrawAPI(input_file, output_path, cfg_path)
   
   draw_api.Draw('probejet_pt_sample',probejet_pt_histname,config_pt, texts,fmts_sample, entries['sample'],is_flav=False)
   draw_api.Draw('probejet_pt_flav',probejet_pt_histname,config_pt,texts, fmts_flav, entries['flav'],is_flav=True)
@@ -134,11 +135,12 @@ def MakeControlPlots(name, input_file, output_path, cfg_path, is_modelling, is_v
   draw_api.Draw('mll_sample',event_mll_histname,config_mll,texts, fmts_sample, entries['sample'],is_flav=False)
   draw_api.Draw('mll_flav',event_mll_histname,config_mll,texts, fmts_flav, entries['event_flav'],is_flav=True)
 
-def MakeBtaggingPlots(name,input_json,output_path):
+
+def MakeBtaggingPlots(output_path,jsons):
     texts = [
         ['#font[72]{ATLAS}',0.5, 0.85,],
         ['#font[42]{Internal}', 0.664,0.85],
-        ['#font[42]{MV2c10, #varepsilon_{b} = 85%, single cut}',0.2,0.30,0.03],
+        ['#font[42]{MV2c10, #varepsilon_{b} = 70%, single cut}',0.2,0.30,0.03],
         ['#font[42]{T&P Method}',0.2,0.37,0.03],
         ['#font[42]{Anti-k_{t} R=0.4 calorimeter jets}',0.2,0.23,0.03],
         ['#font[42]{#sqrt{s} = 13 TeV, 79.9 fb^{-1}}',0.5,0.78,0.04],
@@ -165,10 +167,11 @@ def MakeBtaggingPlots(name,input_json,output_path):
         'yRange':[0.1,1.1],
         'fmt':['png'],
     }    
-
-    drawer = DrawBox.BtaggingPlots(output_path,name)
-    drawer.DrawSF(input_json,cfg_sf,texts)
-    drawer.DrawEff(input_json,cfg_eff,texts)
+    
+    drawer = DrawBox.BtaggingPlots(output_path)
+    for name,json_path in jsons.iteritems():
+      drawer.DrawSF(name,json_path,cfg_sf,texts)
+      drawer.DrawEff(name,json_path,cfg_eff,texts)
 
 def MakeSFcomparisonPlots(name,output_path,jsonA,jsonB,nameA,nameB):
     texts = [
@@ -191,26 +194,25 @@ def MakeSFcomparisonPlots(name,output_path,jsonA,jsonB,nameA,nameB):
         'fmt':['png'],
     }
   
-    drawer = DrawBox.BtaggingPlots(output_path,name)
-    drawer.DrawSFcomparison(jsonA,jsonB,nameA,nameB,cfg,texts)
+    drawer = DrawBox.BtaggingPlots(output_path)
+    drawer.DrawSFcomparison(name,jsonA,jsonB,nameA,nameB,cfg,texts)
 
 def main():
-  input_file = './input/test.root'
-  output_path = './plots/'
-  cfg_path = './data/Run_CalJet_test.json'
-  is_modelling = False
-  is_variation = False
+  input_file = './input/CalJetApr.23.2018.MV2c10.FullSys.FxiedWP.root'
+  output_path = './output/CalJetApr.23.2018.MV2c10.FullSys.FxiedWP/plots/'
+  cfg_path = 'data/Run_CalJet_test.json'
+
   name = 'test'
 
   output_path_btagging = '.'
-  jsonA = './Demo/json_TagProbe/output_mu_XMu_mva_80_eta_xEta_wp_70.json'
+  jsonA = 'output/CalJetApr.23.2018.MV2c10.FullSys.FxiedWP/json_TagProbe/output_mu_XMu_mva_80_eta_xEta_wp_70.json'
   jsonB = './Demo/json_TagProbe/output_mu_XMu_mva_80_eta_xEta_wp_85.json'
   nameA = '70WP'
   nameB = '85WP'
 
-  MakeControlPlots(name, input_file, output_path, cfg_path, is_modelling, is_variation)
+  MakeControlPlots(name, input_file, output_path, cfg_path)
   MakeBtaggingPlots(name, jsonA, output_path_btagging)
-  MakeSFcomparisonPlots(name, output_path_btagging, jsonA, jsonB, nameA, nameB)
+  #MakeSFcomparisonPlots(name, output_path_btagging, jsonA, jsonB, nameA, nameB)
 
 if __name__ == '__main__':
   main()

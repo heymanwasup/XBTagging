@@ -1,35 +1,4 @@
 {
-    "Config_general": {
-        "LogScale": true, 
-        "canvasSize": [
-            800, 
-            800
-        ], 
-        "dataName": "Data", 
-        "errBandName": "MC stat.", 
-        "fmt": [
-            "png"
-        ], 
-        "unit": 10.0, 
-        "xBins": [
-            0, 
-            20, 
-            30, 
-            40, 
-            60, 
-            85, 
-            110, 
-            140, 
-            175, 
-            250, 
-            600
-        ], 
-        "xRange": [
-            0, 
-            600
-        ], 
-        "yRange": null
-    }, 
     "Hist_data": {
         "MarkerSize": [
             0.8
@@ -158,8 +127,8 @@
     }, 
     "Legend_up": {
         "constructor": [
+            0.65, 
             0.6, 
-            0.55, 
             0.9, 
             0.9
         ], 
@@ -222,7 +191,7 @@
                 0.045
             ], 
             "TopMargin": [
-                0.05
+                0.06
             ]
         }
     }

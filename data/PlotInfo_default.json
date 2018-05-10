@@ -1,4 +1,15 @@
 {
+    "Config_general": {
+        "canvasSize": [
+            800, 
+            800
+        ], 
+        "dataName": "Data", 
+        "errBandName": "MC Stat.", 
+        "fmt": [
+            "png"
+        ]
+    }, 
     "Hist_data": {
         "MarkerSize": [
             0.8

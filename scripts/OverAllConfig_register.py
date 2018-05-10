@@ -1,19 +1,27 @@
 import toolkit
 
-class DataConfig(object):
+class Config_overall(object):
   def __init__(self):
+    pass
 
-    self.data, self.samples = self.Samples()
-
-    self.modellings = self.Modellings()
-
-    self.scales = self.Scales()
-
-    self.format = self.HistFormats()
-
-    self.cats = self.Categories()
-
-    self.binnings = self.Binnings()
+  def GetConfig_default(self):
+    data,samples = self.Samples()
+    config = {
+      'data':data,
+      'samples':samples,
+      'modellings':self.Modellings(),
+      'scales':self.Scales(),
+      'format':self.HistFormats(),
+      'cats':self.Categories(),
+      'binnings':self.Binnings()
+    }
+    return config
+  
+  def UpdateConfig(self,fname):
+    config = self.GetConfig_default()
+    with open(fname,'w') as f:
+      toolkit.DumpToJson(config,f)
+      print fname,'updated.'
 
   def Scales(self):
     scales = {}
@@ -78,21 +86,16 @@ class DataConfig(object):
   
   def HistFormats(self):
     fmt = {}
-
-    r21a1_nominal = {
-      'hist' : '{var:}/{sample:}_TP_1ptag2jet_MVA{mva:}_{mu:}_em_{eta:}_{tp:}{wp:}{jet:}Pt',
-      'var'  : 'SysNominal',
+    fmt['v1'] = {
+      'nominal' : {
+        'hist' : '{var:}/{sample:}_TP_1ptag2jet_MVA{mva:}_{mu:}_em_{eta:}_{tp:}{wp:}{jet:}Pt',
+        'var'  : 'SysNominal',
+      },
+      'variation' : {
+        'hist' : '{var:}/{sample:}_TP_1ptag2jet_MVA{mva:}_{mu:}_em_{eta:}_{tp:}{wp:}{jet:}Pt_{var:}', 
+        'var'  : r'(.*[^_])(_+[0-9]*)(up|down)',      
+      },
     }
-    r21a1_variation = {
-      'hist' : '{var:}/{sample:}_TP_1ptag2jet_MVA{mva:}_{mu:}_em_{eta:}_{tp:}{wp:}{jet:}Pt_{var:}', 
-      'var'  : r'(.*[^_])(_+[0-9]*)(up|down)',
-    }
-    r21a1 = {
-      'nominal'   : r21a1_nominal,
-      'variation' : r21a1_variation,
-    }
-    fmt['r21a1'] = r21a1
-
     return fmt
 
   def Categories(self):  
@@ -107,8 +110,8 @@ class DataConfig(object):
       'nominal':['data'],
     } 
 
-    mc_samples    = {}
-
+    mc_samples = {}
+  
     tt = {}
     tt['py6']             = ['ttbar']
     tt['py6_PDFRW']       = ['ttbaraMcAtNloHW_PDFRW']
@@ -145,6 +148,7 @@ class DataConfig(object):
     fake = {}
     fake['nominal'] = ['fake']
     mc_samples['fake'] = fake
+    
     return data, mc_samples
     
 
@@ -158,13 +162,15 @@ class DataConfig(object):
       'tt PDFRW'         : ['py6_aMcAtNloHW', 'py6_PDFRW'],
     } 
     tt['py8'] = {
-      'tt Fragmentation' : ['py8','py8_aMcAtNloPy8'],
+      'tt Fragmentation' : ['py8','py8_PowHW'],
       'tt Radiation'     : ['py8_radhi', 'py8_radlo'],
       'tt HardScatter'   : ['py8','py8_aMcAtNloPy8'],
     }
+    tt['mc16a_v1'] = {
+      'tt HardScatter' : ['py8','py8_aMcAtNloPy8'],
+    }
     modellings['tt'] = tt
 
-    #v1: the as same as r20.7 and r21
     stop = {}
     stop['stop_v1'] = { 
                      'stop DRDS'          :['PowPy6','DS'],
@@ -172,7 +178,6 @@ class DataConfig(object):
                      'stop Fragmentation' :['PowPy6','PowHW'],
                      'stop HardScatter'   :['PowHW','aMCAtNlo'],
     }
-
     modellings['stop'] = stop
 
     zjets = {}

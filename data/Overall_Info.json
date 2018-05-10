@@ -90,7 +90,7 @@
         ]
     }, 
     "format": {
-        "r21a1": {
+        "v1": {
             "nominal": {
                 "hist": "{var:}/{sample:}_TP_1ptag2jet_MVA{mva:}_{mu:}_em_{eta:}_{tp:}{wp:}{jet:}Pt", 
                 "var": "SysNominal"
@@ -104,25 +104,31 @@
     "modellings": {
         "stop": {
             "stop_v1": {
-                "StopDRDS": [
+                "stop DRDS": [
                     "PowPy6", 
                     "DS"
                 ], 
-                "StopFragmentation": [
+                "stop Fragmentation": [
                     "PowPy6", 
                     "PowHW"
                 ], 
-                "StopHardScatter": [
+                "stop HardScatter": [
                     "PowHW", 
                     "aMCAtNlo"
                 ], 
-                "StopRadiation": [
+                "stop Radiation": [
                     "radhi", 
                     "radlo"
                 ]
             }
         }, 
         "tt": {
+            "mc16a_v1": {
+                "tt HardScatter": [
+                    "py8", 
+                    "py8_aMcAtNloPy8"
+                ]
+            }, 
             "py6": {
                 "tt Fragmentation": [
                     "py6", 
@@ -144,7 +150,7 @@
             "py8": {
                 "tt Fragmentation": [
                     "py8", 
-                    "py8_aMcAtNloPy8"
+                    "py8_PowHW"
                 ], 
                 "tt HardScatter": [
                     "py8", 
@@ -158,7 +164,7 @@
         }, 
         "zjets": {
             "zjets_v1": {
-                "zjetsModelling": [
+                "zjets Modelling": [
                     "madgraph", 
                     "sherpa221"
                 ]

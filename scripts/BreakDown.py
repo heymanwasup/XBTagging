@@ -4,12 +4,12 @@ from copy import copy
 import commands
 
 class BreakDown(object):
-    def __init__(self,project_name,output_path,uncertainties=None):
+    def __init__(self,output_path,uncertainties=None):
         if uncertainties==None:
             self.uncertainties = GroupSystmatics.uncertainties
         else:
             sel.uncertainties = uncertainties
-        self.output_path = '{0:}/{1:}/table'.format(output_path,project_name)
+        self.output_path = '{0:}/table'.format(output_path,)
         toolkit.mkdir(self.output_path)
 
 
@@ -173,13 +173,15 @@ class BreakDown(object):
         return interval_str
         
         
-    def GetTex(self,name,input_json,intervals,title,tab_number):
+    def GetTex(self,tex_name,input_json,intervals,title,tab_number):
         intervals = self.GetInterval(intervals)
         tabular_list = self.MaketabularList(input_json,intervals)
         table = self.WrapTable(tabular_list,title,tab_number)
         document = self.WrapDocument(table)
-        tex_path = self.DumpTex(name,document)
+        tex_path = self.DumpTex(tex_name,document)
         self.MakePDF(tex_path)
+
+
 
 class GroupSystmatics(object):
     uncertainties = {

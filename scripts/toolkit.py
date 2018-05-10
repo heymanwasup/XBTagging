@@ -15,7 +15,18 @@ import commands
 import operator
 import numpy as np
 from copy import deepcopy,copy
+import argparse
 
+class MyParser(argparse.ArgumentParser):
+    def error(self, message):
+        sys.stderr.write('error: %s\n' % message)
+        self.print_help()
+        sys.exit(2)
+    def parse_args(self):
+      if len(sys.argv[1:])==0:
+        self.print_help()
+        exit(1)
+      return super(MyParser, self).parse_args()
 
 
 class ALG(object):

@@ -7,10 +7,7 @@
             80
         ], 
         "wp": [
-            60, 
-            70, 
-            77, 
-            85
+            70
         ]
     }, 
     "data": "nominal", 
@@ -20,8 +17,8 @@
     "modellings": {
     },
     "nToys": 10000, 
-    "onlyNominal": true, 
-    "rebinning": false, 
+    "onlyNominal": false, 
+    "rebinning": false,
     "nominals": {
         "diboson": "PowPy8", 
         "fake": "nominal", 

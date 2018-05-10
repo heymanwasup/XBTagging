@@ -1,15 +1,23 @@
 import toolkit
+
 class Config_draw(object):
     def __init__(self):
         pass
 
-    def UpdateConfig(self,fname='./data/PlotInfo_default.json'):
+    def UpdateConfig(self,fname):
         config = self.GetConfig_default()
         with open(fname,'w') as f:
             toolkit.DumpToJson(config,f)
+            print fname,'updated.'
 
     def GetConfig_default(self):
         config = {
+            'Config_general':{
+                'canvasSize':[800,800],
+                'errBandName':'MC Stat.',
+                'fmt':['png'],
+                'dataName':'Data',
+            },
             'Hist_data':{
                 'MarkerSize':[0.8],
             },

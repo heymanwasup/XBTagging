@@ -9,7 +9,7 @@ Take the overall info and run info.
 Make the configuration info and feed it to Caliber.
 '''
 class RetrieveEfficiency(object):
-  def __init__(self,name,input_file,output_path,run_cfg_path,isLoadRawFromCache=True):
+  def __init__(self,input_file,output_path,run_cfg_path,isLoadRawFromCache=True):
     #the /path/to/overall_configure_file should be invariant
     overall_config = toolkit.json_load('./data/Overall_Info.json')
     run_config = toolkit.json_load(run_cfg_path) 
@@ -20,8 +20,8 @@ class RetrieveEfficiency(object):
     if isDEBUG:
       raise RuntimeError('CCDEBUG')
     
-    calibration_config['modellings']={}
-    self.caliber = Caliber(name,input_file,output_path,calibration_config,isLoadRawFromCache)
+    #calibration_config['modellings']={}
+    self.caliber = Caliber(input_file,output_path,calibration_config,isLoadRawFromCache)
   def Work(self):
     self.caliber.Run()
 
@@ -31,7 +31,6 @@ class RetrieveEfficiency(object):
 
     config['nominals']    = run_cfg['nominals']
     config['nToys']       = run_cfg['nToys']
-    config['onlyNominal'] = run_cfg['onlyNominal']
     config['jet']         = run_cfg['jet']
     config['onlyNominal'] = run_cfg['onlyNominal']
     config['rebinning'] = run_cfg['rebinning']
@@ -53,7 +52,7 @@ class RetrieveEfficiency(object):
       modellings = overall_cfg['modellings'][sample][modelling_version]
       for modelling_name,up_down in modellings.iteritems():
         pass
-        #samples[sample] += up_down
+        samples[sample] += up_down
 
     config['samples'] = {}
     for sample,versions in samples.iteritems():
@@ -66,16 +65,16 @@ class RetrieveEfficiency(object):
 class Caliber(object):
       
 
-  def __init__(self,name,input_file,output_path,calibration_config,isLoadRawFromCache):
-    self.outputDir = '{0:}/{1:}/json_TagProbe'.format(output_path,name)
+  def __init__(self,input_file,output_path,calibration_config,isLoadRawFromCache):
+    self.outputDir = '{0:}/jsons_TagProbe'.format(output_path)
     self.inputFile = input_file
     self.isLoadRawFromCache = isLoadRawFromCache
-    self.name = name
 
     self.LoadingCfg(calibration_config)
 
 
   def Initialize(self):
+    print self.inputFile
     self.file      = R.TFile(self.inputFile)
     self._binnings = array.array('d',self._binnings)
     self.HistR = GetHistClass('Raw',len(self._binnings)-1)
@@ -150,9 +149,7 @@ class Caliber(object):
     self.gene_cfg = cfg
     for key,value in self.gene_cfg.iteritems():
       setattr(self,'_%s'%key,value)
-    
-
-
+  
   def Next(self):
     if self.IterCounter >= self.IterEnd:
       status = False
@@ -167,9 +164,7 @@ class Caliber(object):
     self.Initialize()
 
     while self.Next():
-      print self.CurrentItem
       print self.CurrentItem_Str
-      time.sleep(5)
       self.PerformTagAndProbe()
 
   def PerformTagAndProbe(self):
@@ -299,12 +294,25 @@ class Caliber(object):
     self.HistR.altHist = self.HistD
     I = self.HistD(vals=[1]*self.HistR.nbins)
     dish = {}
-    dish['f_tb'] = tt['PbT']/(tt['PbT']+tt['PjT'])
-    dish['e_nb'] = tt['PjP']/tt['PjT']
-    dish['e_mc'] = tt['PbP']/tt['PbT'] 
-    dish['e_tt'] = (dt['PxP']-nt['PxP'])/(dt['PxT']-nt['PxT'])
-    dish['e_dt'] = (dish['e_tt']-dish['e_nb']*(I-dish['f_tb']))/dish['f_tb']
-    dish['sf'] = dish['e_dt']/dish['e_mc']
+
+    try:
+      dish['f_tb'] = tt['PbT']/(tt['PbT']+tt['PjT'])
+      dish['e_nb'] = tt['PjP']/tt['PjT']
+      dish['e_mc'] = tt['PbP']/tt['PbT'] 
+      dish['e_tt'] = (dt['PxP']-nt['PxP'])/(dt['PxT']-nt['PxT'])
+      dish['e_dt'] = (dish['e_tt']-dish['e_nb']*(I-dish['f_tb']))/dish['f_tb']
+      dish['sf'] = dish['e_dt']/dish['e_mc']
+    except Exception as e:
+      print '\n\n','--'*18
+      print '--'*18
+      print 'ERROR ocured'
+      for k,v in entry.iteritems():
+        for _k,_v in v.iteritems():
+          print k,_k,_v
+      print '--'*18
+      print '--'*18
+      raise e
+
     self.HistR.altHist = None
     return dish
 
@@ -329,8 +337,16 @@ class Caliber(object):
         up   = samples[1] 
         sam_down = toolkit.MergeDict(raw_nominal,{sample:raw[sample][samples[0]]})
         sam_up   = toolkit.MergeDict(raw_nominal,{sample:raw[sample][samples[1]]})
-        dish_down = self.Cook(sam_down)
-        dish_up = self.Cook(sam_up)
+        try:
+          dish_down = self.Cook(sam_down)
+          dish_up = self.Cook(sam_up)
+        except Exception as e:
+          print '\n\n','--'*18
+          print 'in CookModellings()'
+          print 'sample',sample
+          print 'name',name
+          print '--'*18
+          raise e
         modellings[name] = [dish_down, dish_up] 
     return modellings  
 
@@ -616,16 +632,18 @@ def GetHistClass(name,nbins):
     raise ValueError('histogram name not found: {0:}'.format(name))
   return Hist
 
+
+
 def test():#name,input_file,output_path,run_cfg,isLoadRawFromCache):
   
-  name = 'DEBUG'
-  input_file = './input/test.root'
+  name = 'CalJetApr.23.2018.MV2c10.FullSys.FxiedWP'
+  input_file = './input/CalJetApr.23.2018.MV2c10.FullSys.FxiedWP.root'
   output_path = './output'
   run_cfg = './data/Run_CalJet_test.json'
-  isLoadRawFromCache = False
+  isLoadRawFromCache = True
 
-  #project_name,input_file,output_path,run_config,isLoadRawFromCache
-  worker = RetrieveEfficiency(name,input_file,output_path,run_cfg,isLoadRawFromCache)
+
+  worker = RetrieveEfficiency(input_file,output_path,run_cfg,isLoadRawFromCache)
   worker.Work() 
 
 if __name__ == '__main__':
