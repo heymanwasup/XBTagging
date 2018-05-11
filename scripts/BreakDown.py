@@ -173,13 +173,15 @@ class BreakDown(object):
         return interval_str
         
         
-    def GetTex(self,tex_name,input_json,intervals,title,tab_number):
+    def GetTex(self,tex_name,input_json,intervals,title,label):
         intervals = self.GetInterval(intervals)
         tabular_list = self.MaketabularList(input_json,intervals)
-        table = self.WrapTable(tabular_list,title,tab_number)
+        table = self.WrapTable(tabular_list,title,label)
         document = self.WrapDocument(table)
         tex_path = self.DumpTex(tex_name,document)
         self.MakePDF(tex_path)
+
+
 
 
 

@@ -629,7 +629,7 @@ class BtaggingPlots(object):
         self.scale_x = 1.05
         self.output_path = '{0:}/plots_BtaggingPlots'.format(output_path)
         
-        toolkit.mkdir(output_path)
+        toolkit.mkdir(self.output_path)
     def DrawSFcomparison(self,plot_name,input_json_A,input_json_B,nameA,nameB,cfg,texts):
         data_A = self.ExtractData_SF(input_json_A,0.05)
         data_B = self.ExtractData_SF(input_json_B)
@@ -747,7 +747,7 @@ class BtaggingPlots(object):
         }
         return objects
 
-    def DrawObjects_SF(self,pot_name,objects,cfg,texts):
+    def DrawObjects_SF(self,plot_name,objects,cfg,texts):
         objects['canvas'].Draw()
         objects['errband'].Draw('A2')
         objects['central'].Draw('PZSAME')
