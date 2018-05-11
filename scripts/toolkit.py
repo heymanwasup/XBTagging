@@ -13,7 +13,6 @@ import json
 import os
 import commands
 import operator
-import numpy as np
 from copy import deepcopy,copy
 import argparse
 

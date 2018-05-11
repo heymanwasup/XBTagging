@@ -1,4 +1,5 @@
-from AtlasStyle import *
+#from AtlasStyle import *
+import AtlasStyle
 import ROOT as R
 import toolkit
 import root_toolkit
@@ -8,6 +9,7 @@ from array import array
 import copy
 import re
 import itertools
+
 
 R.gROOT.SetBatch(True)
 

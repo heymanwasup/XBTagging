@@ -1,10 +1,11 @@
 
 import toolkit
-default_project_name = 'CalJetMar.04.2018.21.2.16.data1516.Full'
+#default_project_name = 'CalJetMar.04.2018.21.2.16.data1516.Full'
+default_project_name = 'test'
 default_input_file = './input/CalJetMar.04.2018.21.2.16.data1516.Full.root'
 default_output_path = './output'
-#For ttbar modelling, only hardscatter included
 default_config_path = './data/Run_CalJet_mc16a_partialModelling_fullVariation.json'
+
 
 parser = toolkit.MyParser(description='Run btagging')
 parser.add_argument('-e','--efficiency',   action='store_true', help='retrieve tagging efficinecy')
@@ -13,21 +14,28 @@ parser.add_argument('-b','--btagging_plots', action='store_true', help='print bt
 parser.add_argument('-t','--table', action='store_true', help='get the table tex/pdf results')
 parser.add_argument('-a','--all', action='store_true', help='get the full results')
 
+parser.add_argument('-P','--parallel', action='store_true', help='run retrieve efficiency parallelly')
+parser.add_argument('-N','--process', action='store',default=8, help='# of processes when run retrieve efficiency parallelly')
+
 parser.add_argument('--project_name', action='store', default=default_project_name, help='name of project')
 parser.add_argument('--input_file', action='store', default=default_input_file, help='/path/to/root_file')
 parser.add_argument('--output_path', action='store', default=default_output_path, help='/path/to/output')
 parser.add_argument('--config_path', action='store', default=default_config_path, help='/path/to/run_cfg')
 args = parser.parse_args()
 
-import RetrieveEfficiency
-import DrawPlots
-import BreakDown
 import os
 import time
 import sys
 import re
 
+import RetrieveEfficiency
+import DrawPlots
+import BreakDown
+
 def main():
+
+
+
 
     output_path = '{0:}/{1:}'.format(args.output_path,args.project_name)
 
@@ -37,7 +45,7 @@ def main():
     if args.all or args.efficiency:
         isLoadRawFromCache = False
         worker = RetrieveEfficiency.RetrieveEfficiency(args.input_file, output_path, args.config_path,isLoadRawFromCache)
-        worker.Work()
+        worker.Work(args.parallel,int(args.process))
         #TODO: worker.WorkParallel()
 
     json_path = '{0:}/jsons_TagProbe/'.format(output_path)
