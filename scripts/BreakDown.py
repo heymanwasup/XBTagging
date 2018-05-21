@@ -98,7 +98,7 @@ class BreakDown(object):
         tabular_list.append(r'\hline')
         addEntryP(r'Parton shower / Hadronisation ($t\bar{t}$)')
         addEntryP(r'Matrix element modelling ($t\bar{t}$)')
-        addEntryP(r'NNLO Top $p_{T}$, $t\bar{t}$ $p_{T}$ reweighting ($t\bar{t}$)')
+#        addEntryP(r'NNLO Top $p_{T}$, $t\bar{t}$ $p_{T}$ reweighting ($t\bar{t}$)')
         addEntryP(r'PDF reweighting ($t\bar{t}$)')
         addEntryP(r'More / less radiation ($t\bar{t}$)')
         addEntryP(r'Modelling (single top)')
@@ -121,7 +121,7 @@ class BreakDown(object):
         addEntryP(r'Muon eff./res./scale')
         addEntryP(r'$E_{T}^{miss}$')
         addEntryP(r'Jet energy scale')
-        addEntryP(r'Jet energy resolution')
+#addEntryP(r'Jet energy resolution')
         addEntryP(r'JVT')
         addEntryP(r'Light jet mis-tag rate')
         addEntryP(r'C jet mis-tag rate')
@@ -263,7 +263,7 @@ class GroupSystmatics(object):
             'SysFT_EFF_Light_systematics',
         ],
         r'JVT':[
-            'SysJvtEfficiency'
+            'SysJET_JvtEfficiency'
         ],
 
         #modellings

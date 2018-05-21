@@ -7,7 +7,7 @@ default_plotting_config = './data/PlottingConfig_default.json'
 
 parser = toolkit.MyParser(description='Manage config files')
 parser.add_argument('-o', '--option',choices=['overall','plotting'],action='store',required=True, help='update overall/plotting configuration file')
-parser.add_argument('-p','--path', action='store', help='path to configure file')
+parser.add_argument('-p','--path', action='store',default='', help='/path/to/configure_file (it\'s optional) ')
 
 args = parser.parse_args()
 
@@ -16,9 +16,11 @@ def main():
     plotting_config = PlottingConfig_register.Config_draw()
 
     if args.option == 'overall':
-        overall_config.UpdateConfig(default_overall_config)
+        overall_config = default_overall_config if len(args.path)==0 else args.path
+        overall_config.UpdateConfig(overall_config)
 
     if args.option == 'plotting':
+        plotting_config = plotting_overall_config if len(args.path)==0 else args.path
         plotting_config.UpdateConfig(default_plotting_config)
 
 
