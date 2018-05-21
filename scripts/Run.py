@@ -1,6 +1,6 @@
 
 import toolkit
-default_project_name = 'CalJetMar.04.2018.21.2.16.data1516.Full'
+default_project_name = '16a'
 default_input_file = './input/CalJetMar.04.2018.21.2.16.data1516.Full.root'
 default_output_path = './output'
 default_config_file = './data/Run_CalJet_mc16a_partialModelling_fullVariation.json'
@@ -52,7 +52,7 @@ def main():
     intervals = config_overall['binnings'][config_user['binnings']][1:]
 
 
-    print '{0:}({1:}) efficiency (raw) files founded in "{1:}" :'.format(len(jsons),len(jsons_raw),json_path)
+    print '{0:}({1:}) efficiency (raw) files founded in "{2:}" :'.format(len(jsons),len(jsons_raw),json_path)
     for name,f in jsons.iteritems():
         print '\t',os.path.basename(f)
     for name,f in jsons_raw.iteritems():
@@ -69,6 +69,7 @@ def main():
         title_fmt = 'MC16a and Data1516, {0:}\% OP of MV2c10 tagger'        
         table_maker = BreakDown.BreakDown(output_path)
         for name,json_path in jsons.iteritems():
+            print name
             title = TableTitle(name, title_fmt)
             table_maker.GetTex(tex_name=name, input_json=json_path, intervals=intervals, title=title, label='unc.')
 
@@ -82,8 +83,11 @@ def main():
         cdiInputMaker.SetInfo(method='TP',quark='bottom',jetAuthor='AntiKt4EMTopoJets',tagger='MV2c10',ptIntervals=intervals)
 
         cdiInputMaker.AddMetaData(['Hadronization','Pythia8EvtGen'])
+        print 'haha'
+        print 
         for name in jsons.keys():
-            wp = re.findall('.*_wp_([0-9]+).*',name)[0]
+            print name
+            wp = re.findall('.*wp_([0-9]+).*',name)[0]
             OP = 'FixedCutBEff_{0:}'.format(wp)
             cdiInputMaker.SetInfo(operating_point=OP)
             cdiInputMaker.MakeInput(name,jsons[name],jsons_raw[name])
@@ -105,7 +109,7 @@ def CollectJsonFiles(json_path):
     return jsons,jsons_raw
 
 def TableTitle(name,fmt):
-    wp = re.findall('.*_wp_([0-9]+).*',name)[0]
+    wp = re.findall('.*wp_([0-9]+).*',name)[0]
     title = fmt.format(wp)
     return title
 

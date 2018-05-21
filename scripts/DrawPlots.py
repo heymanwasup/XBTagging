@@ -143,7 +143,7 @@ def MakeBtaggingPlots(output_path,jsons):
         ['#font[42]{MV2c10, #varepsilon_{b} = 70%, single cut}',0.2,0.30,0.03],
         ['#font[42]{T&P Method}',0.2,0.37,0.03],
         ['#font[42]{Anti-k_{t} R=0.4 calorimeter jets}',0.2,0.23,0.03],
-        ['#font[42]{#sqrt{s} = 13 TeV, 79.9 fb^{-1}}',0.5,0.78,0.04],
+        ['#font[42]{#sqrt{s} = 13 TeV, 36.1 fb^{-1}}',0.5,0.78,0.04],
     ]
 
     cfg_sf = {
@@ -180,7 +180,7 @@ def MakeSFcomparisonPlots(name,output_path,jsonA,jsonB,nameA,nameB):
         ['#font[42]{MV2c10, #varepsilon_{b} = 85%, single cut}',0.2,0.30,0.03],
         ['#font[42]{%s v.s %s}'%(nameA,nameB),0.2,0.37,0.03],
         ['#font[42]{Anti-k_{t} R=0.4 calorimeter jets}',0.2,0.23,0.03],
-        ['#font[42]{#sqrt{s} = 13 TeV, 79.9 fb^{-1}}',0.2,0.78,0.04],
+        ['#font[42]{#sqrt{s} = 13 TeV, 36.1 fb^{-1}}',0.2,0.78,0.04],
     ]
 
     cfg = {
