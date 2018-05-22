@@ -1,17 +1,19 @@
-
+#!/usr/bin/python
 import toolkit
-"""
+
 default_project_name = 'test'
 default_input_file = './input/CalJetMar.04.2018.21.2.16.data1516.Full.root'
 default_output_path = './output'
 default_config_path = './data/Run_CalJet_mc16a_partialModelling_fullVariation.json'
+default_cdi_file = './data/2016-20_7-13TeV-MC15-CDI-2017-01-31_v1.root'
+
 """
 default_project_name = '16a'
 default_input_file = './input/CalJetMar.04.2018.21.2.16.data1516.Full.root'
 default_output_path = './output'
 default_config_file = './data/Run_CalJet_mc16a_partialModelling_fullVariation.json'
-default_cdi_file = './data/2016-20_7-13TeV-MC15-CDI-2017-01-31_v1.root'
 
+"""
 
 parser = toolkit.MyParser(description='Run btagging')
 parser.add_argument('-e','--efficiency',   action='store_true', help='retrieve tagging efficinecy')
@@ -28,6 +30,7 @@ parser.add_argument('--output_path', action='store', default=default_output_path
 parser.add_argument('--config_file', action='store', default=default_config_file, help='/path/to/run_cfg')
 parser.add_argument('--cdi_file', action='store', default=default_cdi_file, help='/path/to/cdi_file (or basename_of_cdi_file )')
 args = parser.parse_args()
+
 import os
 import time
 import sys
@@ -39,9 +42,6 @@ import DrawPlots
 import BreakDown
 
 def main():
-
-
-
 
     output_path = '{0:}/{1:}'.format(args.output_path,args.project_name)
 
@@ -104,7 +104,6 @@ def main():
 def CollectJsonFiles(json_path):
     json_name_ptn = re.compile('output_(.*).json')
     json_raw_name_ptn = re.compile('raw_(?!scales|variations)(.*).json')
-
     files = os.listdir(json_path)
     jsons = {}
     jsons_raw = {}

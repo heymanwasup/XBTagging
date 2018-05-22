@@ -1,31 +1,31 @@
 {
-    "binnings": "CalNew", 
+    "binnings": "CalOld", 
     "cats": "ptCalib", 
     "cats_add": {
         "mva": [
             80,
         ], 
         "wp": [
-            60
+            70
         ]
     }, 
     "data": "nominal", 
     "format": "v1", 
-    "jet": "CalJet", 
+    "jet": "CalJet",
     "modellings": {
-        "tt": "mc16a_v1",
-        "stop": "stop_v1",
+        "tt": "py6",
+        "stop": "stop_v1_noME",
         "zjets": "zjets_v1"
     },
     "nToys": 10000,
     "onlyNominal": false,
     "rebinning": false,
     "nominals": {
-        "diboson": "PowPy8",
+        "diboson": "sherpa221",
         "fake": "nominal",
         "stop": "PowPy6",
-        "tt": "py8",
-        "zjets": "sherpa221"
+        "tt": "py6",
+        "zjets": "madgraph"
     }, 
     "scales": [
         "WtScale", 

@@ -178,6 +178,12 @@ class Config_overall(object):
                      'stop Fragmentation' :['PowPy6','PowHW'],
                      'stop HardScatter'   :['PowHW','aMCAtNlo'],
     }
+    stop['stop_v1_noME'] = {
+                     'stop DRDS'          :['PowPy6','DS'],
+                     'stop Radiation'     :['radhi','radlo'],
+                     'stop Fragmentation' :['PowPy6','PowHW'],
+    }
+
     modellings['stop'] = stop
 
     zjets = {}
