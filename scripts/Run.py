@@ -4,14 +4,13 @@ import toolkit
 default_project_name = 'test'
 default_input_file = './input/CalJetMar.04.2018.21.2.16.data1516.Full.root'
 default_output_path = './output'
-default_config_path = './data/Run_CalJet_mc16a_partialModelling_fullVariation.json'
+default_config_file = './data/Run_CalJet_mc16a_partialModelling_fullVariation.json'
 default_cdi_file = './data/2016-20_7-13TeV-MC15-CDI-2017-01-31_v1.root'
 
 """
 default_project_name = '16a'
 default_input_file = './input/CalJetMar.04.2018.21.2.16.data1516.Full.root'
 default_output_path = './output'
-default_config_file = './data/Run_CalJet_mc16a_partialModelling_fullVariation.json'
 
 """
 

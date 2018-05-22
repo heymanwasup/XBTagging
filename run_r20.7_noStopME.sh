@@ -14,6 +14,6 @@ CDI="./data/2016-20_7-13TeV-MC15-CDI-2017-01-31_v1.root"
 
 RUNTAG=v1
 
-Run.py -e  --project_name ${PROJECT} --input_file ${INPUT} --output_path ${OUTPUT} --config_file ${CONFIG} --cdi_file ${CDI}   1>logs/${PROJECT}_${RUNTAG}.output 2>logs/${PROJECT}_${RUNTAG}.error 0>logs/${PROJECT}_${RUNTAG}.warning
+python scripts/Run.py -e  --project_name ${PROJECT} --input_file ${INPUT} --output_path ${OUTPUT} --config_file ${CONFIG} --cdi_file ${CDI}   1>logs/${PROJECT}_${RUNTAG}.output 2>logs/${PROJECT}_${RUNTAG}.error 0>logs/${PROJECT}_${RUNTAG}.warning
 
-Run.py -b -t -cdi --project_name ${PROJECT} --input_file ${INPUT} --output_path ${OUTPUT} --config_file ${CONFIG} --cdi_file ${CDI}
+python scripts/Run.py -b -t -cdi --project_name ${PROJECT} --input_file ${INPUT} --output_path ${OUTPUT} --config_file ${CONFIG} --cdi_file ${CDI}
