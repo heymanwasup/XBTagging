@@ -3,7 +3,7 @@
     "cats": "ptCalib", 
     "cats_add": {
         "mva": [
-            80,
+            80
         ], 
         "wp": [
             70
