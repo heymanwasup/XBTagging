@@ -3,7 +3,6 @@ import ROOT as R
 import root_toolkit
 import toolkit
 from toolkit import ALG
-from pathos.pools import _ThreadPool as Pool
 
 '''
 Take the overall info and run info.
@@ -16,14 +15,15 @@ class RetrieveEfficiency(object):
     run_config = toolkit.json_load(run_cfg_path) 
 
     calibration_config = self.CalibrationConfig(overall_config,run_config)
+    #toolkit.DumpToJson(calibration_config,open('test_cfg.json','w'))
     isDEBUG=False
     if isDEBUG:
       raise RuntimeError('CCDEBUG')
     
+    #calibration_config['modellings']={}
     self.caliber = Caliber(input_file,output_path,calibration_config,isLoadRawFromCache)
-
-  def Work(self,isParallel=False,nProcess=8):
-    self.caliber.Run(isParallel,nProcess)
+  def Work(self):
+    self.caliber.Run()
 
   def CalibrationConfig(self,overall_cfg,run_cfg):
 
@@ -44,7 +44,6 @@ class RetrieveEfficiency(object):
     config['scales'] = {name:overall_cfg['scales'][name] for name in run_cfg['scales']}
     config['modellings'] = {sample:overall_cfg['modellings'][sample][version] for sample,version in run_cfg['modellings'].iteritems()}
 
-
     samples = {} # nominal + modellings
     for sample,version in run_cfg['nominals'].iteritems(): # append nominal
       samples[sample] = [version]
@@ -63,51 +62,48 @@ class RetrieveEfficiency(object):
 
     return config
 
-
-
 class Caliber(object):
       
+
   def __init__(self,input_file,output_path,calibration_config,isLoadRawFromCache):
     self.outputDir = '{0:}/jsons_TagProbe'.format(output_path)
     self.inputFile = input_file
     self.isLoadRawFromCache = isLoadRawFromCache
-    self.config = calibration_config
 
-    
-  def Initialize_Run(self):
-    for key,value in self.config.iteritems():
-      setattr(self,'_%s'%key,value)
-    
+    self.LoadingCfg(calibration_config)
+
+
+  def Initialize(self):
+    print self.inputFile
+    self.file      = R.TFile(self.inputFile)
+    self._binnings = array.array('d',self._binnings)
     self.HistR = GetHistClass('Raw',len(self._binnings)-1)
     self.HistD = GetHistClass('Dish',len(self._binnings)-1)
     self.HistE = GetHistClass('Error',len(self._binnings)-1)
 
     self.init_io()
-    self.init_scales()
     self.init_environment()
-    self.init_samples()
-
-
-
-  def Initialize_TP(self,name,args):
-    self.CurrentItem_Str = name
-    self.CurrentItem = args
-
-    self.file      = R.TFile(self.inputFile)
     self.init_varList()
+    self.init_scales()
+    self.init_samples()
     self.init_wrapFoos()
-    
-    self._binnings = array.array('d',self._binnings)
+    self.init_iterator()
+
+  def init_iterator(self):
+    self.IterKeys = self._cats.keys()
+    self.IterItems = list(itertools.product(*[ self._cats[key] for key in self.IterKeys ]))
+    self.IterEnd = len(self.IterItems)
+    self.IterCounter = 0
+
   def init_io(self):
     def PrintToFd(fd,name):
       head = '{0:<15}'.format('[{0:} {1:}]'.format(name,fd))
       def Print(*args):
         with open('/dev/fd/%s'%(fd),'a') as f:
-          s = '\n'+'-'*12+'\n'
+          print >>f,'\n','-'*12
           for arg in args:
-            s += '{0:} {1:}\n'.format(head,arg.__str__())
-          s += '-'*12+'\n'
-          print >>f,s
+            print >>f,'{0:} {1:}'.format(head,arg.__str__())
+          print >>f,'-'*12,'\n'
       return Print
     self.Warning    = PrintToFd(0,'Warning') 
     self.FBIWarning = PrintToFd(2,'FBIWarning')
@@ -133,12 +129,10 @@ class Caliber(object):
       scale['status'] = None
       scale['pass'] = False
       if 'samples' in scale:
-        pass
-        #scale['samples'] = re.compile(scale['samples'])
+        scale['samples'] = re.compile(scale['samples'])
       if 'keys' in scale:
         for key,regexp in scale['keys'].iteritems():
-          pass
-          #scale['keys'][key] = re.compile(regexp)
+          scale['keys'][key] = re.compile(regexp)
 
   def init_samples(self):
     self.nominal_samples = { sam:{name:self._samples[sam][name]} \
@@ -146,42 +140,34 @@ class Caliber(object):
 
   def init_wrapFoos(self):
     self.isHist = lambda hist : True if hist.__doc__ == '__MetaHistogram__' else False
-    def f(self,foo,name,Hist):
-      setattr(self,foo,self.LoadFromJson(name,Hist)(getattr(self,foo))) 
-    
-    f(self,'GetRaw','raw',self.HistR)  
-    f(self,'GetRawScales','raw_scales',self.HistR)
-    f(self,'GetRawVariations','raw_variations',self.HistR)
+    f = lambda foo,name,Hist:setattr(self,foo,self.LoadFromJson(name,Hist)(getattr(self,foo))) 
+    f('GetRaw','raw',self.HistR)  
+    f('GetRawScales','raw_scales',self.HistR)
+    f('GetRawVariations','raw_variations',self.HistR)
 
-  def GetArgsDict(self):
-    keys = self._cats.keys()
-    items = list(itertools.product(*[ self._cats[key] for key in keys ]))
-    args_dict = {}
-    for item in items:
-      args = dict(zip(keys,item))
-      name =  '_'.join(['{0:}_{1:}'.format(key,args[key]) for key in keys])    
-      args_dict[name] = args
-    return args_dict
-    
+  def LoadingCfg(self,cfg):
+    self.gene_cfg = cfg
+    for key,value in self.gene_cfg.iteritems():
+      setattr(self,'_%s'%key,value)
   
-  def Run(self,isParallel,nProcess=8):
-    self.Initialize_Run()
-    args_dict = self.GetArgsDict()
-    if isParallel:
-      P = Pool(nProcess)
-      for name,args in args_dict.iteritems():
-        P.apply_async(self.PerformTagAndProbe,args=(copy.deepcopy(self),name,args))
-      P.close()
-      P.join()
+  def Next(self):
+    if self.IterCounter >= self.IterEnd:
+      status = False
     else:
-      for name,args in args_dict.iteritems():      
-        self.PerformTagAndProbe(self,name,args)
+      self.CurrentItem = dict(zip(self.IterKeys,self.IterItems[self.IterCounter]))
+      self.CurrentItem_Str =  '_'.join(['{0:}_{1:}'.format(key,self.CurrentItem[key]) for key in self.IterKeys])
+      self.IterCounter += 1
+      status = True
+    return status
 
-  @staticmethod
-  def PerformTagAndProbe(self,name,args):
+  def Run(self):
+    self.Initialize()
 
-    self.Initialize_TP(name,args)
-    self.STDOUT('Started',name)
+    while self.Next():
+      print self.CurrentItem_Str
+      self.PerformTagAndProbe()
+
+  def PerformTagAndProbe(self):
 
     raw = self.GetRaw()
     raw_nominal = self.LoadNominal(raw)
@@ -204,7 +190,6 @@ class Caliber(object):
 
     self.DumpDishes(dish_nominal,dish_scales,dish_variations,dish_modellings)
 
-    self.STDOUT('Ended',name)
 
   def GetRaw(self):
     samples = self._samples
@@ -252,7 +237,7 @@ class Caliber(object):
     mcEmpty = True
     for sample, entries in samples.iteritems():
       raw[sample] = {}
-      scale['pass'] = False if not 'samples' in scale else re.match(scale['samples'],sample)
+      scale['pass'] = False if not 'samples' in scale else scale['samples'].match(sample)
       for name, items in entries.iteritems():
         raw[sample][name] = {}
         isEmpty = True
@@ -271,7 +256,7 @@ class Caliber(object):
 
   def GetRawData(self,scale={}):
     if 'samples' in scale:
-      scale['pass'] = re.match(scale['samples'],'data')
+      scale['pass'] = scale['samples'].match('data')
     else:
       scale['pass'] = False
 
@@ -500,7 +485,7 @@ class Caliber(object):
       return 1.
     if 'keys' in scale:
       for key,reg in scale['keys'].iteritems():
-        if not re.match(reg,keys[key]):
+        if not reg.match(keys[key]):
           return 1.
     return scale['scale'][scale['status']]      
  
