@@ -69,8 +69,8 @@ class Config_overall(object):
     }
 
     scales['lumiScale'] = {
-      'samples' : '.*',
-      'scale'   : [1.032,9.968],
+      'samples' : '(?!data).*',
+      'scale'   : [1.032,0.968],
     }
     return scales
   

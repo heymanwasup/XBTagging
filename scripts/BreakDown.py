@@ -3,26 +3,27 @@ import math
 from copy import copy
 import commands
 
-class BreakDown(object):
-    def __init__(self,output_path,uncertainties=None):
-        if uncertainties==None:
-            self.uncertainties = GroupSystmatics.uncertainties
-        else:
-            sel.uncertainties = uncertainties
+class BreakDown(toolkit.IOHandler):
+    def __init__(self,output_path,version='r21.old',variable=['SF','sf']):
+        self.uncertainties = GroupSystmatics().GetUncertainties(version)
         self.output_path = '{0:}/table'.format(output_path,)
+
+        self.Name = variable[0]
+        self.head = variable[1]
+        self.key = variable[2]
         toolkit.mkdir(self.output_path)
 
 
-    @staticmethod
-    def AddEntry(tab_list,entries,isPercentage=False):
+
+    def AddEntry(self,tab_list,entries,isPercentage=False):
         nbins = len(entries.values()[0])
         fmt = lambda x : x if isinstance(x,str) else '{0:.3f}'.format(x)
         fmtP = lambda x:'{0:.1f}'.format(x)
         
         def addEntry(name):
-            tot = entries[r'SF']
+            tot = entries[self.head]
             if not name in entries:
-                print '\n'+'----------\n'*2+'FBIWARNING: {0:} not even registered !\n----------'.format(name)
+                self.FBIWarning('{0:} not even registered !'.format(name))
                 content = ['-']*nbins                
             elif  isinstance(entries[name][0],str) or (not isPercentage):
                 content = map(fmt,entries[name])
@@ -37,10 +38,10 @@ class BreakDown(object):
     def GetEnrties(self,data,uncertainties):
         entries = {}
 
-        sf = data.pop('nominal')[1:]
+        nominal = data.pop('nominal')[1:]
         stat = data.pop('data stats')[1:]
 
-        nbins = len(sf)
+        nbins = len(nominal)
         syst = [0.]*nbins
         for name,uncertainty in data.iteritems():
             unc = uncertainty[1:]
@@ -49,7 +50,7 @@ class BreakDown(object):
 
         total = list(map(lambda x,y:math.sqrt(x**2+y**2), syst,stat))
 
-        entries['SF'] = sf
+        entries[self.head] = nominal
         entries[r'Stat. unc.'] = stat
         entries[r'Syst. unc.'] = syst        
         entries[r'Total unc.'] = total
@@ -59,7 +60,7 @@ class BreakDown(object):
             empty = True
             for item in uncertainty_group:
                 if not item in data:
-                    print '\n\n--------\nWARNNING: skip {0:}\n--------'.format(item)
+                    self.Warning('skip {0:}'.format(item))                    
                     continue
                 empty = False
                 unc = data[item][1:]
@@ -73,7 +74,7 @@ class BreakDown(object):
 
 
     def MaketabularList(self,input_json,intervals):
-        data = toolkit.json_load(input_json)['sf']
+        data = toolkit.json_load(input_json)[self.key]
 
         entries = self.GetEnrties(data,self.uncertainties)
         nBins = len(entries.values()[0])+1
@@ -87,7 +88,7 @@ class BreakDown(object):
         tabular_list.append(intervals)
         tabular_list.append(r'\hline')
         tabular_list.append(r'\hline')
-        addEntry('SF')
+        addEntry(self.head)
         addEntry(r'Total unc.')
         addEntry(r'Stat. unc.')
         addEntry(r'Syst. unc.')
@@ -98,7 +99,7 @@ class BreakDown(object):
         tabular_list.append(r'\hline')
         addEntryP(r'Parton shower / Hadronisation ($t\bar{t}$)')
         addEntryP(r'Matrix element modelling ($t\bar{t}$)')
-#        addEntryP(r'NNLO Top $p_{T}$, $t\bar{t}$ $p_{T}$ reweighting ($t\bar{t}$)')
+        addEntryP(r'NNLO Top $p_{T}$, $t\bar{t}$ $p_{T}$ reweighting ($t\bar{t}$)')
         addEntryP(r'PDF reweighting ($t\bar{t}$)')
         addEntryP(r'More / less radiation ($t\bar{t}$)')
         addEntryP(r'Modelling (single top)')
@@ -121,7 +122,7 @@ class BreakDown(object):
         addEntryP(r'Muon eff./res./scale')
         addEntryP(r'$E_{T}^{miss}$')
         addEntryP(r'Jet energy scale')
-#addEntryP(r'Jet energy resolution')
+        addEntryP(r'Jet energy resolution')
         addEntryP(r'JVT')
         addEntryP(r'Light jet mis-tag rate')
         addEntryP(r'C jet mis-tag rate')
@@ -154,7 +155,7 @@ class BreakDown(object):
         return table
 
     def DumpTex(self,name,tabular_list):
-        tex_path = '{0:}/{1:}.tex'.format(self.output_path,name)
+        tex_path = '{0:}/{1:}_{2:}.tex'.format(self.output_path,self.Name,name)
         with open(tex_path,'w') as f:
             for line in tabular_list:
                 f.write(line+'\n')
@@ -186,135 +187,145 @@ class BreakDown(object):
 
 
 class GroupSystmatics(object):
-    uncertainties = {
+    def __init__(self):
+        self.uncertainties = {
 
-        #mcstat
+            #mcstat
 
-        r'MC stat. unc.':[
-            'mc stats',
-        ],
+            r'MC stat. unc.':[
+                'mc stats',
+            ],
 
-        #variations
-        r'PDF reweighting ($t\bar{t}$)':[
-            'tt PDFRW',
-        ],
+            #variations
+            r'PDF reweighting ($t\bar{t}$)':[
+                'tt PDFRW',
+            ],
 
-        r'Electron eff./res./scale':[
-            'SysEL_EFF_Reco_TotalCorrUncertainty',
-            'SysEL_EFF_Iso_TotalCorrUncertainty',
-            'SysEL_EFF_Trigger_TotalCorrUncertainty',
-            'SysEL_EFF_ID_TotalCorrUncertainty'
-            'SysEG_RESOLUTION_ALL',
-            'SysEG_SCALE_ALL',
-        ],
-        r'Jet energy resolution':[
-            'SysJET_JER_SINGLE_NP',
-        ],
-        r'Jet energy scale':[
-            'SysJET_BJES_Response',
-            'SysJET_PunchThrough_MC15',
-            'SysJET_Flavor_Composition',
-            'SysJET_EtaIntercalibration_Modelling',
-            'SysJET_EtaIntercalibration_NonClosure',
-            'SysJET_EtaIntercalibration_TotalStat',#TODO added
-            'SysJET_RelativeNonClosure_MC15',
-            'SysJET_Flavor_Response',
-            'SysJET_SingleParticle_HighPt',
-            'SysJET_EffectiveNP_1',
-            'SysJET_EffectiveNP_2',
-            'SysJET_EffectiveNP_3',
-            'SysJET_EffectiveNP_4',
-            'SysJET_EffectiveNP_5',
-            'SysJET_EffectiveNP_6restTerm',
-        ],
-        r'Muon eff./res./scale':[
-            'SysMUONS_SCALE',
-            'SysMUONS_ID',
-            'SysMUONS_MS',
-            'SysMUON_EFF_STAT',
-            'SysMUON_EFF_SYS',
-            'SysMUON_EFF_TrigSystUncertainty',
-            'SysMUON_EFF_TrigStatUncertainty',
-            'SysMUON_TTVA_SYS',
-            'SysMUON_TTVA_STAT',
-            'SysMUON_ISO_STAT',
-            'SysMUON_ISO_SYS',
-        ],
-        r'NNLO Top $p_{T}$, $t\bar{t}$ $p_{T}$ reweighting ($t\bar{t}$)':[
-            'SysTOP_PT_RW',
-            'SysTTBAR_PT_RW',
-        ],
-        r'Pile-up reweighting':[
-            'SysPRW_DATASF',#TODO maybe wrong position
-            'SysJET_Pileup_PtTerm',
-            'SysJET_Pileup_OffsetMu',
-            'SysJET_Pileup_OffsetNPV',
-            'SysJET_Pileup_RhoTopology',
-        ],
-        r'$E_{T}^{miss}$':[
-            'SysMET_SoftTrk_Scale',
-            'SysMET_SoftTrk_ResoPara',#TODO added
-            'SysMET_SoftTrk_ResoPerp',#TODO added
-        ],
-        r'C jet mis-tag rate':[
-            'SysFT_EFF_C_systematics',
-        ],
-        r'Light jet mis-tag rate':[
-            'SysFT_EFF_Light_systematics',
-        ],
-        r'JVT':[
-            'SysJET_JvtEfficiency'
-        ],
+            r'Electron eff./res./scale':[
+                'SysEL_EFF_Reco_TotalCorrUncertainty',
+                'SysEL_EFF_Iso_TotalCorrUncertainty',
+                'SysEL_EFF_Trigger_TotalCorrUncertainty',
+                'SysEL_EFF_ID_TotalCorrUncertainty',
+                'SysEG_RESOLUTION_ALL',
+                'SysEG_SCALE_ALL',
+            ],
+            r'Jet energy resolution':[
+                'SysJET_JER_SINGLE_NP',
+            ],
+            r'Jet energy scale':[
+                'SysJET_BJES_Response',
+                'SysJET_PunchThrough_MC15',
+                'SysJET_Flavor_Composition',
+                'SysJET_EtaIntercalibration_Modelling',
+                'SysJET_EtaIntercalibration_NonClosure',
+                'SysJET_EtaIntercalibration_TotalStat',#TODO added
+                'SysJET_RelativeNonClosure_MC15',
+                'SysJET_Flavor_Response',
+                'SysJET_SingleParticle_HighPt',
+                'SysJET_EffectiveNP_1',
+                'SysJET_EffectiveNP_2',
+                'SysJET_EffectiveNP_3',
+                'SysJET_EffectiveNP_4',
+                'SysJET_EffectiveNP_5',
+                'SysJET_EffectiveNP_6restTerm',
+            ],
+            r'Muon eff./res./scale':[
+                'SysMUONS_SCALE',
+                'SysMUONS_ID',
+                'SysMUONS_MS',
+                'SysMUON_EFF_STAT',
+                'SysMUON_EFF_SYS',
+                'SysMUON_EFF_TrigSystUncertainty',
+                'SysMUON_EFF_TrigStatUncertainty',
+                'SysMUON_TTVA_SYS',
+                'SysMUON_TTVA_STAT',
+                'SysMUON_ISO_STAT',
+                'SysMUON_ISO_SYS',
+            ],
+            r'NNLO Top $p_{T}$, $t\bar{t}$ $p_{T}$ reweighting ($t\bar{t}$)':[
+                'SysTOP_PT_RW',
+                'SysTTBAR_PT_RW',
+            ],
+            r'Pile-up reweighting':[
+                'SysPRW_DATASF',#TODO maybe wrong position
+                'SysJET_Pileup_PtTerm',
+                'SysJET_Pileup_OffsetMu',
+                'SysJET_Pileup_OffsetNPV',
+                'SysJET_Pileup_RhoTopology',
+            ],
+            r'$E_{T}^{miss}$':[
+                'SysMET_SoftTrk_Scale',
+                'SysMET_SoftTrk_ResoPara',#TODO added
+                'SysMET_SoftTrk_ResoPerp',#TODO added
+            ],
+            r'C jet mis-tag rate':[
+                'SysFT_EFF_C_systematics',
+            ],
+            r'Light jet mis-tag rate':[
+                'SysFT_EFF_Light_systematics',
+            ],
+            r'JVT':[
+                'SysJET_JvtEfficiency'
+            ],
 
-        #modellings
+            #modellings
 
-        r'Parton shower / Hadronisation ($t\bar{t}$)':[
-            'tt Fragmentation',
-        ],
-        r'More / less radiation ($t\bar{t}$)':[
-            'tt Radiation',
-        ],
-        r'Matrix element modelling ($t\bar{t}$)':[
-            'tt HardScatter',
-        ],
-        r'Modelling (single top)':[
-            'stop HardScatter',
-        ],
-        r'Parton shower / Hadronisation (single top)':[
-            'stop Fragmentation',
-        ],
-        r'More / less radiation (single top)':[
-            'stop Radiation',
-        ],
-        r'$t\bar{t}$ diagram overlap (single top)':[
-            'stop DRDS',
-        ],
+            r'Parton shower / Hadronisation ($t\bar{t}$)':[
+                'tt Fragmentation',
+            ],
+            r'More / less radiation ($t\bar{t}$)':[
+                'tt Radiation',
+            ],
+            r'Matrix element modelling ($t\bar{t}$)':[
+                'tt HardScatter',
+            ],
+            r'Modelling (single top)':[
+                'stop HardScatter',
+            ],
+            r'Parton shower / Hadronisation (single top)':[
+                'stop Fragmentation',
+            ],
+            r'More / less radiation (single top)':[
+                'stop Radiation',
+            ],
+            r'$t\bar{t}$ diagram overlap (single top)':[
+                'stop DRDS',
+            ],
 
-        r'Modelling (Z+jets)':[
-            'zjets Modelling',
-        ],
+            r'Modelling (Z+jets)':[
+                'zjets Modelling',
+            ],
 
-        #normalization samples
+            #normalization samples
 
-        r'Norm. Z+b/c':[
-            'SysZHF',
-        ],
-        r'Norm. single top':[
-            'WtScale',
-        ],
-        r'Norm. diboson':[
-            'dibosonScale'
-        ],
-        r'Norm. Z+jets':[
-            'zjetsScale',
-        ],
-        r'Norm. lepton fakes':[
-            'fakeScale',
-        ],
+            r'Norm. Z+b/c':[
+                'SysZHF',
+            ],
+            r'Norm. single top':[
+                'WtScale',
+            ],
+            r'Norm. diboson':[
+                'dibosonScale'
+            ],
+            r'Norm. Z+jets':[
+                'zjetsScale',
+            ],
+            r'Norm. lepton fakes':[
+                'fakeScale',
+            ],
 
-        #others
+            #others
 
-        r'Luminosity (3.2\%)':[
-            'lumiScale',
-        ],
-    }
+            r'Luminosity (3.2\%)':[
+                'lumiScale',
+            ],
+        }
+    def GetUncertainties(self,release):
+        if release == 'r21.old':
+            return self.uncertainties
+        elif release == 'r20.7':
+            self.uncertainties[r'JVT'] = ['SysJvtEfficiency']
+            return self.uncertainties
+        else:
+            raise ValueError
+    

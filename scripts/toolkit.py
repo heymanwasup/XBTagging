@@ -16,6 +16,34 @@ import operator
 from copy import deepcopy,copy
 import argparse
 
+class IOHandler(object):
+    
+    def Warning(self,*args):
+      self.PrintToFile('Warning 0','/dev/fd/0')(args)
+
+    def Stdout(self,*args):
+      self.PrintToFile('Stdout 1','/dev/fd/1')(args)      
+
+    def FBIWarning(self,*args):
+      self.PrintToFile('FBIWarning 2','/dev/fd/2')(args)
+
+
+    def PrintToFile(self,name,fd='/dev/fd/1'):        
+        def Print(args):
+            outStr = self.Encoding(name,args)
+            with open(fd,'a') as f:
+                print >>f,outStr
+        return Print
+
+    def Encoding(self,name,args):
+      head = '{0:<18}'.format('['+name+']')
+      outStr = '\n' + '-'*30 + '\n'
+      for arg in args:
+        outStr += '{0:} {1:}'.format(head,arg.__str__()) + '\n'
+      outStr += '-'*30 + '\n'
+      return outStr
+
+
 class MyParser(argparse.ArgumentParser):
     def error(self, message):
         sys.stderr.write('error: %s\n' % message)

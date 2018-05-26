@@ -120,6 +120,20 @@
                     "radhi", 
                     "radlo"
                 ]
+            }, 
+            "stop_v1_noME": {
+                "stop DRDS": [
+                    "PowPy6", 
+                    "DS"
+                ], 
+                "stop Fragmentation": [
+                    "PowPy6", 
+                    "PowHW"
+                ], 
+                "stop Radiation": [
+                    "radhi", 
+                    "radlo"
+                ]
             }
         }, 
         "tt": {
@@ -283,10 +297,10 @@
             ]
         }, 
         "lumiScale": {
-            "samples": ".*", 
+            "samples": "(?!data).*", 
             "scale": [
                 1.032, 
-                9.968
+                0.968
             ]
         }, 
         "mistagCal": {

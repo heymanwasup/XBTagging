@@ -1,11 +1,12 @@
 #!/usr/bin/python
 import toolkit
-
+default_version='r21.old'
 default_project_name = 'test'
 default_input_file = './input/CalJetMar.04.2018.21.2.16.data1516.Full.root'
 default_output_path = './output'
 default_config_file = './data/Run_CalJet_mc16a_partialModelling_fullVariation.json'
-default_cdi_file = './data/2016-20_7-13TeV-MC15-CDI-2017-01-31_v1.root'
+default_cdi_file = '2016-20_7-13TeV-MC15-CDI-2017-01-31_v1.root'
+
 
 """
 default_project_name = '16a'
@@ -22,7 +23,7 @@ parser.add_argument('-t','--table', action='store_true', help='get the table tex
 parser.add_argument('-cdi','--cdi_inputs', action='store_true', help='get the cdi inputs file')
 parser.add_argument('-a','--all', action='store_true', help='get the full results')
 
-
+parser.add_argument('--version',action='store',default=default_version,help='version of input')
 parser.add_argument('--project_name', action='store', default=default_project_name, help='name of project')
 parser.add_argument('--input_file', action='store', default=default_input_file, help='/path/to/root_file')
 parser.add_argument('--output_path', action='store', default=default_output_path, help='/path/to/output')
@@ -75,7 +76,7 @@ def main():
 
     if args.all or args.table:
         title_fmt = 'MC16a and Data1516, {0:}\% OP of MV2c10 tagger'        
-        table_maker = BreakDown.BreakDown(output_path)
+        table_maker = BreakDown.BreakDown(output_path,args.version)
         for name,json_path in jsons.iteritems():
             print name
             title = TableTitle(name, title_fmt)
@@ -91,8 +92,7 @@ def main():
         cdiInputMaker.SetInfo(method='TP',quark='bottom',jetAuthor='AntiKt4EMTopoJets',tagger='MV2c10',ptIntervals=intervals)
 
         cdiInputMaker.AddMetaData(['Hadronization','Pythia8EvtGen'])
-        print 'haha'
-        print 
+
         for name in jsons.keys():
             print name
             wp = re.findall('.*wp_([0-9]+).*',name)[0]

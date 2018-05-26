@@ -21,7 +21,7 @@
     "onlyNominal": false,
     "rebinning": false,
     "nominals": {
-        "diboson": "sherpa221",
+        "diboson": "sherpa",
         "fake": "nominal",
         "stop": "PowPy6",
         "tt": "py6",
