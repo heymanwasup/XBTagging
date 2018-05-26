@@ -62,7 +62,7 @@ class RetrieveEfficiency(object):
 
     return config
 
-class Caliber(object):
+class Caliber(toolkit.IOHandler):
       
 
   def __init__(self,input_file,output_path,calibration_config,isLoadRawFromCache):
@@ -81,7 +81,6 @@ class Caliber(object):
     self.HistD = GetHistClass('Dish',len(self._binnings)-1)
     self.HistE = GetHistClass('Error',len(self._binnings)-1)
 
-    self.init_io()
     self.init_environment()
     self.init_varList()
     self.init_scales()
@@ -94,20 +93,6 @@ class Caliber(object):
     self.IterItems = list(itertools.product(*[ self._cats[key] for key in self.IterKeys ]))
     self.IterEnd = len(self.IterItems)
     self.IterCounter = 0
-
-  def init_io(self):
-    def PrintToFd(fd,name):
-      head = '{0:<15}'.format('[{0:} {1:}]'.format(name,fd))
-      def Print(*args):
-        with open('/dev/fd/%s'%(fd),'a') as f:
-          print >>f,'\n','-'*12
-          for arg in args:
-            print >>f,'{0:} {1:}'.format(head,arg.__str__())
-          print >>f,'-'*12,'\n'
-      return Print
-    self.Warning    = PrintToFd(0,'Warning') 
-    self.FBIWarning = PrintToFd(2,'FBIWarning')
-    self.STDOUT     = PrintToFd(1,'STDOUT')
       
   def init_environment(self):
     toolkit.mkdir(self.outputDir)
@@ -219,12 +204,25 @@ class Caliber(object):
   def GetRawVariations(self):
     if self._onlyNominal:
       return {}
-    fmt  = self._format['variation']['hist']
+    fmt_var  = self._format['variation']['hist']
+    fmt_nominal = self._format['nominal']['hist']
     samples = self.nominal_samples
     res = {}
+    var_nominal = self._format['nominal']['var']
+
     for variation,up_down in self.varsList.iteritems():
-      down = self.LoadNominal(self.GetRawMC(fmt,up_down[0],samples))
-      up   = self.LoadNominal(self.GetRawMC(fmt,up_down[1],samples))
+      if re.match(var_nominal,up_down[0]):
+        fmt_down = fmt_nominal
+      else:
+        fmt_down = fmt_var
+      if re.match(var_nominal,up_down[1]):
+        fmt_up = fmt_nominal
+      else:
+        fmt_up = fmt_var
+
+
+      down = self.LoadNominal(self.GetRawMC(fmt_down,up_down[0],samples))
+      up   = self.LoadNominal(self.GetRawMC(fmt_up,up_down[1],samples))
       res[variation] = [down,up]
     return res
 
@@ -247,7 +245,8 @@ class Caliber(object):
           isEmpty &= not status
         mcEmpty &= isEmpty
         if isEmpty:
-          self.FBIWarning('Sample Empty',var,sample,name)
+          if sample != 'fake':
+            self.FBIWarning('Sample Empty',var,sample,name)
     if mcEmpty:
       samples_used = ['<%s> %s'%(sample,name) for name in entries \
                      for sample,entries in samples.iteritems()]
@@ -561,7 +560,7 @@ class Caliber(object):
       def newFun(*args,**kw):
         json_name = '%s/%s_%s.json'%(self.outputDir,name,self.CurrentItem_Str)
         if not self.isLoadRawFromCache or not os.path.isfile(json_name):
-          self.STDOUT('Producing json file :','\t%s'%(json_name))
+          self.Stdout('Producing json file :','\t%s'%(json_name))
           res_h = fun(*args,**kw)
           res_j = self.JsonToHist(res_h,Hist,inverse=True)
           with open(json_name,'w') as f:

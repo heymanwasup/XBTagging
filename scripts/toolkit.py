@@ -16,6 +16,34 @@ import operator
 from copy import deepcopy,copy
 import argparse
 
+class IOHandler(object):
+    
+    def Warning(self,*args):
+      self.PrintToFile('Warning 0','/dev/fd/0')(args)
+
+    def Stdout(self,*args):
+      self.PrintToFile('Stdout 1','/dev/fd/1')(args)      
+
+    def FBIWarning(self,*args):
+      self.PrintToFile('FBIWarning 2','/dev/fd/2')(args)
+
+    def PrintToFile(self,name,fd='/dev/fd/1'):  
+        def Print(args):
+            outStr = self.Encoding(name,args)
+            with open(fd,'a') as f:
+                print >>f,outStr
+        return Print
+
+    def Encoding(self,name,args):
+
+      head = '{{0:^{0:}}}'.format(len(name)+4).format('['+name+']')
+      length = len(head)
+      outStr = '\n' + '-'*length + '\n'
+      for arg in args:
+        outStr += '{0:}  {1:}'.format(head,arg.__str__()) + '\n'
+      outStr += '-'*length + '\n'
+      return outStr
+
 class MyParser(argparse.ArgumentParser):
     def error(self, message):
         sys.stderr.write('error: %s\n' % message)
@@ -26,7 +54,6 @@ class MyParser(argparse.ArgumentParser):
         self.print_help()
         exit(1)
       return super(MyParser, self).parse_args()
-
 
 class ALG(object):
   iters = staticmethod( \
@@ -88,12 +115,7 @@ class ALG(object):
     alg = wraper(bi_alg)
     res = self.Map(stop,alg,*args)
     return res
-
-
-
-
-
-
+    
 class PrintPriority(object):
   priorities = []
   def __init__(self,priority):
@@ -304,6 +326,20 @@ def MergeDict_recursive(Origin,Extern):
   res = deepcopy(Origin)
   merge(Origin, Extern,res)
   return res
+
+def Searcher(data,nameMap={}):
+    def Search(key,d=data):
+        for k,value in d.iteritems():
+            name = k if not k in nameMap else nameMap[k]
+            if name == key:
+                return value
+            elif isinstance(value,dict):
+                res = Search(key,value)
+                if not res == None:
+                    return res
+        return None
+    return Search
+
 
 def main():
   Origin = {

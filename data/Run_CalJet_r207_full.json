@@ -3,7 +3,7 @@
     "cats": "ptCalib", 
     "cats_add": {
         "mva": [
-            80,
+            80
         ], 
         "wp": [
             70
@@ -14,14 +14,14 @@
     "jet": "CalJet",
     "modellings": {
         "tt": "py6",
-        "stop": "stop_v1_noME",
+        "stop": "stop_v1",
         "zjets": "zjets_v1"
     },
     "nToys": 10000,
     "onlyNominal": false,
     "rebinning": false,
     "nominals": {
-        "diboson": "sherpa221",
+        "diboson": "sherpa",
         "fake": "nominal",
         "stop": "PowPy6",
         "tt": "py6",

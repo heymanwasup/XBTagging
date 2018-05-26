@@ -16,12 +16,12 @@ def main():
     plotting_config = PlottingConfig_register.Config_draw()
 
     if args.option == 'overall':
-        overall_config = default_overall_config if len(args.path)==0 else args.path
-        overall_config.UpdateConfig(overall_config)
+        overall_config_path = default_overall_config if len(args.path)==0 else args.path
+        overall_config.UpdateConfig(overall_config_path)
 
     if args.option == 'plotting':
-        plotting_config = plotting_overall_config if len(args.path)==0 else args.path
-        plotting_config.UpdateConfig(default_plotting_config)
+        plotting_config_path = default_plotting_config if len(args.path)==0 else args.path
+        plotting_config.UpdateConfig(plotting_config_path)
 
 
 if __name__ == '__main__':
