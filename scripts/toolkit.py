@@ -15,34 +15,59 @@ import commands
 import operator
 from copy import deepcopy,copy
 import argparse
+import inspect
 
 class IOHandler(object):
-    
+    def __new__(cls,*args,**kw):
+        obj = super(type(cls),cls).__new__(cls,*args,**kw)
+        obj.start =  inspect.stack()[1][3]
+        obj.debug = False
+        return obj
+
+    def SetDebug(debug):
+      self.debug = debug
+
     def Warning(self,*args):
       self.PrintToFile('Warning 0','/dev/fd/0')(args)
 
     def Stdout(self,*args):
-      self.PrintToFile('Stdout 1','/dev/fd/1')(args)      
+      self.PrintToFile('Stdout 1','/dev/fd/1')(args)
 
     def FBIWarning(self,*args):
       self.PrintToFile('FBIWarning 2','/dev/fd/2')(args)
 
     def PrintToFile(self,name,fd='/dev/fd/1'):  
         def Print(args):
-            outStr = self.Encoding(name,args)
+            outStr = self._encoding(name,args)
             with open(fd,'a') as f:
                 print >>f,outStr
         return Print
 
-    def Encoding(self,name,args):
-
+    def _encoding(self,name,args):
+      track_back = self._get_traceback()
       head = '{{0:^{0:}}}'.format(len(name)+4).format('['+name+']')
       length = len(head)
       outStr = '\n' + '-'*length + '\n'
+      outStr += '{0:}  {1:}'.format(head,track_back) + '\n'
       for arg in args:
         outStr += '{0:}  {1:}'.format(head,arg.__str__()) + '\n'
       outStr += '-'*length + '\n'
       return outStr
+
+    def _get_traceback(self):
+      trace_back = [x[3] for x in inspect.stack()][-1::-1]
+      for n,itm in enumerate(trace_back):
+        if itm == self.start:
+          break
+      trace_back.insert(n+1, '*{0:}*'.format(type(self).__name__))
+      trace_back = trace_back[1:-4]
+      if not self.debug: 
+        pass
+        trace_back = trace_back[n:]
+      
+      trace_back_str = '.'.join(trace_back)
+      return trace_back_str
+
 
 class MyParser(argparse.ArgumentParser):
     def error(self, message):
@@ -115,7 +140,7 @@ class ALG(object):
     alg = wraper(bi_alg)
     res = self.Map(stop,alg,*args)
     return res
-    
+
 class PrintPriority(object):
   priorities = []
   def __init__(self,priority):
@@ -339,7 +364,6 @@ def Searcher(data,nameMap={}):
                     return res
         return None
     return Search
-
 
 def main():
   Origin = {
