@@ -11,6 +11,10 @@ Make the configuration info and feed it to Caliber.
 class RetrieveEfficiency(object):
   def __init__(self,input_file,output_path,run_cfg_path,isLoadRawFromCache=True):
     #the /path/to/overall_configure_file should be invariant
+    self.output_path = output_path
+    self.isLoadRawFromCache = isLoadRawFromCache
+    self.input_file = input_file
+
     overall_config = toolkit.json_load('./data/Overall_Info.json')
     run_config = toolkit.json_load(run_cfg_path) 
 
@@ -21,9 +25,24 @@ class RetrieveEfficiency(object):
       raise RuntimeError('CCDEBUG')
     
     #calibration_config['modellings']={}
-    self.caliber = Caliber(input_file,output_path,calibration_config,isLoadRawFromCache)
+    
+
   def Work(self):
-    self.caliber.Run()
+      caliber = Caliber(input_file,output_path,isLoadRawFromCache)
+      caliber.Run(calibration_config)
+    
+    
+  def WorkParallel(self):
+      output_path = self.output_path
+      
+      output_path,project_name = os.path.split(output_path)
+      if len(project_name)==0:
+        output_path,project_name = os.path.split(output_path)
+
+      with open('./submit/{0:}'.format(project_name), 'w') as f:
+        toolkit.DumpToJson(data,f)
+      
+      raise RuntimeError('debug')
 
   def CalibrationConfig(self,overall_cfg,run_cfg):
 

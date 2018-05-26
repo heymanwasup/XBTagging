@@ -75,8 +75,8 @@ def main():
 
 
     if args.all or args.table:
-        title_fmt = 'MC16a and Data1516, {0:}\% OP of MV2c10 tagger'        
-        table_maker = BreakDown.BreakDown(output_path,args.version)
+        title_fmt = 'Uncertainties of Scale factor, {0:}\% OP of MV2c10 tagger'        
+        table_maker = BreakDown.BreakDown(output_path,args.version,['ScaleFactor','SF','sf'])
         for name,json_path in jsons.iteritems():
             print name
             title = TableTitle(name, title_fmt)

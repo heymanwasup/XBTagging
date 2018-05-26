@@ -15,5 +15,5 @@ VERSION="r20.7"
 
 RUNTAG=v2
 
-python scripts/Run.py -e  --project_name ${PROJECT} --input_file ${INPUT} --output_path ${OUTPUT} --config_file ${CONFIG} --cdi_file ${CDI}   1>logs/${PROJECT}_${RUNTAG}.output 2>logs/${PROJECT}_${RUNTAG}.error 0>logs/${PROJECT}_${RUNTAG}.warning
+#python scripts/Run.py -e  --project_name ${PROJECT} --input_file ${INPUT} --output_path ${OUTPUT} --config_file ${CONFIG} --cdi_file ${CDI}   1>logs/${PROJECT}_${RUNTAG}.output 2>logs/${PROJECT}_${RUNTAG}.error 0>logs/${PROJECT}_${RUNTAG}.warning
 python scripts/Run.py -t  --project_name ${PROJECT} --input_file ${INPUT} --output_path ${OUTPUT} --config_file ${CONFIG} --cdi_file ${CDI} --version ${VERSION}

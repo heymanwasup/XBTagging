@@ -1,170 +1,226 @@
 import toolkit
 import math
-from copy import copy
+import re
+from copy import copy,deepcopy
 import commands
 
 class BreakDown(toolkit.IOHandler):
-    def __init__(self,output_path,version='r21.old',variable=['SF','sf']):
+    label = 1
+    def __init__(self,output_path,version='r21.old',variable=['ScaleFactor','Scale factor','sf']):
         self.uncertainties = GroupSystmatics().GetUncertainties(version)
         self.output_path = '{0:}/table'.format(output_path,)
-
         self.Name = variable[0]
         self.head = variable[1]
-        self.key = variable[2]
+        self.key = variable[2]       
+        self.FooSum2 = lambda x:list(reduce(lambda _x,_y:map(lambda __x,__y:math.sqrt(__x**2+__y**2),_x,_y),x))
+        self.config_default = {
+            'width':270,
+            'height':270,
+            't_b_l_rMargin':[2,2,2,2],
+            'scale':1.5,
+        }
+
         toolkit.mkdir(self.output_path)
 
+    def GetTexAllFix(self,tex_name,input_json,alter_json,intervals,title):        
+        entriesA = self._getEntries(input_json,readPickle=True)
+        entriesB = self._getEntries(alter_json,readPickle=False)
+        entries = self._updateEntries(entriesA, entriesB)
 
+        name = tex_name + '_group_fixed'
+        self._getTex({'height':270},name,entries,intervals,title,isGroup=True)
+        name = tex_name + '_detail_fixed'
+        self._getTex({'height':480},name,entries,intervals,title,isGroup=False)
 
-    def AddEntry(self,tab_list,entries,isPercentage=False):
-        nbins = len(entries.values()[0])
-        fmt = lambda x : x if isinstance(x,str) else '{0:.3f}'.format(x)
-        fmtP = lambda x:'{0:.1f}'.format(x)
-        
-        def addEntry(name):
-            tot = entries[self.head]
-            if not name in entries:
-                self.FBIWarning('{0:} not even registered !'.format(name))
-                content = ['-']*nbins                
-            elif  isinstance(entries[name][0],str) or (not isPercentage):
-                content = map(fmt,entries[name])
+    def GetTexAll(self,tex_name,input_json,intervals,title,readPickle=False):
+        entries = self._getEntries(input_json,readPickle)
+
+        name = tex_name + '_group'
+        self._getTex({'height':270},name,entries,intervals,title,isGroup=True)
+        name = tex_name + '_detail'
+        self._getTex({'height':480},name,entries,intervals,title,isGroup=False)    
+
+    def _addEntry(self,tab_list,entries,isGroup=True,isPercentage=False,entries_alter=None):
+        tot = entries[self.head]
+        nbins = len(tot)
+        if isPercentage:
+            fmt = lambda errs:list(map(lambda x,y:'{0:.1f}'.format(100.*(x/y)),errs,tot))
+        else:
+            fmt = lambda errs:list(map(lambda x:'{0:.3f}'.format(x),errs))
+
+        def AppendSys(name,entry):
+            if entry == None:
+                content = [name] + ['-']*nbins
             else:
-                content = map(lambda x,y:fmtP(100.*(x/y)) if y!=0 else 0, entries[name], tot)
-            content = [name] + content
-            content_str = ' & '.join(map(str,content))
-            content_str = content_str + r'\\'
+                content = [name] + fmt(entry)
+            content_str = ' & '.join(content) + r'\\'
             tab_list.append(content_str)
-        return addEntry
 
-    def GetEnrties(self,data,uncertainties):
+        def AddEntry(name):
+            if not name in entries: #systs not known
+                self.FBIWarning('{0:} not even registered !'.format(name))
+                AppendSys(name,None)
+            elif isinstance(entries[name],list): # nominal/stat/syst/total
+                AppendSys(name,entries[name]) 
+            elif len(entries[name]) == 0: # empty systs
+                if isGroup or len(self.uncertainties[name])==1:
+                    AppendSys(name,None)
+                else:
+                    for itm in self.uncertainties[name]:
+                        AppendSys(itm,None)
+            elif len(self.uncertainties[name]) == 1: # single systs
+                AppendSys(name,entries[name].values()[0])
+            else: # multiple systs
+                if not isGroup:
+                    for itm in self.uncertainties[name]:
+                        itm_regular = re.sub('_','\_',itm)
+                        entry = entries[name][itm] if itm in entries[name] else None                    
+                        AppendSys(itm_regular,entry)
+                else:
+                    init = [0.] * nbins
+                    entry = self.FooSum2(entries[name].values() + [init])    
+                    AppendSys(name,entry)
+        return AddEntry
+
+    def _getEntries(self,input_json,readPickle=False):
+        def WrapGetter(data):
+            def getter(key):
+                if readPickle:
+                    entry = toolkit.Searcher(data,nameMap)(key)
+                else:
+                    entry = data.get(key)
+                return entry
+            return getter
+
+        nameMap = GroupSystmatics().MapPickle()
+        data = WrapGetter(toolkit.json_load(input_json))(self.key)
+        getter = WrapGetter(data)
+        nominal = getter('nominal')[1:]
+        stat = getter('data stats')[1:]
+        systs = []
         entries = {}
-
-        nominal = data.pop('nominal')[1:]
-        stat = data.pop('data stats')[1:]
-
-        nbins = len(nominal)
-        syst = [0.]*nbins
-        for name,uncertainty in data.iteritems():
-            unc = uncertainty[1:]
-            for n in range(nbins):
-                syst[n] = math.sqrt(syst[n]**2+unc[n]**2)
-
-        total = list(map(lambda x,y:math.sqrt(x**2+y**2), syst,stat))
-
-        entries[self.head] = nominal
-        entries[r'Stat. unc.'] = stat
-        entries[r'Syst. unc.'] = syst        
-        entries[r'Total unc.'] = total
-
-        for name, uncertainty_group in uncertainties.iteritems():
-            group_tot = [0.]*nbins
-            empty = True
+        for name, uncertainty_group in self.uncertainties.iteritems():
+            group = {}
             for item in uncertainty_group:
-                if not item in data:
+                entry = getter(item)
+                if not entry:
                     self.Warning('skip {0:}'.format(item))                    
-                    continue
-                empty = False
-                unc = data[item][1:]
-                for n in range(nbins):
-                    group_tot[n] = math.sqrt(group_tot[n]**2+unc[n]**2)
-            if empty:
-                group_tot = ['-']*nbins
-            entries[name] = group_tot
-
+                else:
+                    group[item] = entry[1:]
+                    systs.append(entry[1:])
+            entries[name] = group
+        syst_sum = self.FooSum2(systs)
+        total = self.FooSum2([syst_sum,stat])
+        entries[self.head] = nominal
+        entries[r'Statistical uncertainty'] = stat
+        entries[r'Systematic uncertainty'] = syst_sum
+        entries[r'Total uncertainty'] = total
         return entries
 
-
-    def MaketabularList(self,input_json,intervals):
-        data = toolkit.json_load(input_json)[self.key]
-
-        entries = self.GetEnrties(data,self.uncertainties)
-        nBins = len(entries.values()[0])+1
-
-        tabular_list = []
-        
-        addEntry = self.AddEntry(tabular_list,entries,isPercentage=False)
-        addEntryP = self.AddEntry(tabular_list,entries,isPercentage=True)
+    def _maketabularList(self,entries,tabular_list,addEntry,addEntryP,intervals):
+        nBins = len(entries[self.head])+1
         tabular_list.append( r'\begin{tabular}{l'+r'|r'*(nBins-1)+r'}' )
-        tabular_list.append(r'\toprule')
+        tabular_list.append(r'\hline')
+        tabular_list.append(r'\hline')
+        tabular_list.append(r'\multicolumn{'+str(nBins)+r'}{c}{T\&P Method} \\')
+        tabular_list.append(r'\hline')
+        tabular_list.append(r'\hline')
         tabular_list.append(intervals)
         tabular_list.append(r'\hline')
         tabular_list.append(r'\hline')
         addEntry(self.head)
-        addEntry(r'Total unc.')
-        addEntry(r'Stat. unc.')
-        addEntry(r'Syst. unc.')
+        addEntry(r'Total uncertainty')
+        addEntry(r'Statistical uncertainty')
+        addEntry(r'Systematic uncertainty')
         tabular_list.append(r'\hline')
         tabular_list.append(r'\hline')
         tabular_list.append(r'\multicolumn{'+str(nBins)+r'}{c}{Systematic Uncertainties [\%]} \\')
         tabular_list.append(r'\hline')
         tabular_list.append(r'\hline')
-        addEntryP(r'Parton shower / Hadronisation ($t\bar{t}$)')
         addEntryP(r'Matrix element modelling ($t\bar{t}$)')
-        addEntryP(r'NNLO Top $p_{T}$, $t\bar{t}$ $p_{T}$ reweighting ($t\bar{t}$)')
+        addEntryP(r'Parton shower / Hadronisation ($t\bar{t}$)')
+        addEntryP(r'NNLO top $p_{T}$, $t\bar{t}$ $p_{T}$ reweighting ($t\bar{t}$)')
         addEntryP(r'PDF reweighting ($t\bar{t}$)')
         addEntryP(r'More / less radiation ($t\bar{t}$)')
-        addEntryP(r'Modelling (single top)')
+        addEntryP(r'Matrix element modelling (single top)')
         addEntryP(r'Parton shower / Hadronisation (single top)')
         addEntryP(r'More / less radiation (single top)')
-        addEntryP(r'$t\bar{t}$ diagram overlap (single top)')
+        addEntryP(r'DR vs. DS (single top)')
         addEntryP(r'Modelling (Z+jets)')
-        addEntryP(r'Z $p_{T}$ reweighting')
+        #addEntryP(r'Z $p_{T}$ reweighting')
         tabular_list.append(r'\hline')
-        addEntryP(r'MC stat. unc.')
+        addEntryP(r'Limited size of simulated samples')
         tabular_list.append(r'\hline')
-        addEntryP(r'Norm. single top')
-        addEntryP(r'Norm. Z+jets')
-        addEntryP(r'Norm. Z+b/c')
-        addEntryP(r'Norm. diboson')
-        addEntryP(r'Norm. lepton fakes')
+        addEntryP(r'Normalisation single top')
+        addEntryP(r'Normalisation Z+jets')
+        addEntryP(r'Normalisation Z+b/c')
+        addEntryP(r'Normalisation diboson')
+        addEntryP(r'Normalisation misid. leptons')
         tabular_list.append(r'\hline')
         addEntryP(r'Pile-up reweighting')
-        addEntryP(r'Electron eff./res./scale')
-        addEntryP(r'Muon eff./res./scale')
+        addEntryP(r'Electron efficiency/resolution/scale/trigger')
+        addEntryP(r'Muon efficiency/resolution/scale/trigger')
         addEntryP(r'$E_{T}^{miss}$')
-        addEntryP(r'Jet energy scale')
-        addEntryP(r'Jet energy resolution')
         addEntryP(r'JVT')
-        addEntryP(r'Light jet mis-tag rate')
-        addEntryP(r'C jet mis-tag rate')
+        addEntryP(r'Jet energy scale (JES)')
+        addEntryP(r'Jet energy resolution (JER)')
+        addEntryP(r'Light-flavour jet mis-tag rate')
+        addEntryP(r'c-jet mis-tag rate')
         addEntryP(r'Luminosity (3.2\%)')
         tabular_list.append(r'\hline')
         tabular_list.append(r'\bottomrule')
         tabular_list.append(r'\end{tabular}')
         return tabular_list
-
-    def WrapTable(self,tabular_list,title,table_number):
+        
+    def _wrapTable(self,config,tabular_list,title,table_number):
         tabular_list = copy(tabular_list)
-        tabular_list.insert(0,r'\scalebox{0.75}[0.85]{')
+        tabular_list.insert(0,r'\scalebox{{{0:}}}[{0:}]{{'.format(config['scale']))
         tabular_list.append(r'}')
         
-        tabular_list.insert(0,r'\centering')
-        tabular_list.insert(0,r'\renewcommand\thetable{'+str(table_number)+'}')
+        
         tabular_list.insert(0,r'\begin{table}[htbp]') 
+        tabular_list.insert(1,r'\renewcommand\thetable{'+str(table_number)+'}')
+        tabular_list.insert(2,r'\centering')
+        
+        tabular_list.append(r'\captionsetup{font=large}')
         tabular_list.append(r'\caption{'+title+'}')
         tabular_list.append(r'\end{table}')
 
         return tabular_list
-    def WrapDocument(self,table):
+    def _wrapDocument(self,table,config):
         table = copy(table)
         table.insert(0, r'\begin{document}')
         table.append(r'\end{document}')
 
-        table.insert(0,r'\usepackage{graphics}')
-        table.insert(0,r'\usepackage{booktabs}')
         table.insert(0,r'\documentclass{article}')
+        table.insert(1,r'\usepackage{booktabs}')
+        table.insert(2,r'\usepackage{graphics}')
+        table.insert(3,r'\usepackage{caption}')        
+        table.insert(4,r'\usepackage[paperwidth={0:}mm,paperheight={1:}mm]{{geometry}}'.format(config['width'],config['height']))
+        table.insert(5,r'\geometry{{tmargin={0:}mm,bmargin={1:}mm,lmargin={2:}mm,rmargin={3:}mm}}'.format(*config['t_b_l_rMargin']))
         return table
 
-    def DumpTex(self,name,tabular_list):
+    def _dumpTex(self,name,tabular_list):
         tex_path = '{0:}/{1:}_{2:}.tex'.format(self.output_path,self.Name,name)
         with open(tex_path,'w') as f:
             for line in tabular_list:
                 f.write(line+'\n')
         return tex_path
 
-    def MakePDF(self,input_tex):
-        commands.getstatusoutput('pdflatex -output-directory={0:} {1:}'.format(self.output_path,input_tex))
+    def _makePDF(self,input_tex):
+        res = commands.getstatusoutput('pdflatex -halt-on-error -output-directory={0:} {1:}'.format(self.output_path,input_tex))
+        if res[0]:
+            raise  RuntimeError(res[1])
+        else:
+            commands.getstatusoutput('rm {0:}'.format(re.sub('.tex$','.log',input_tex)))
+            commands.getstatusoutput('rm {0:}'.format(re.sub('.tex$','.aux',input_tex)))
+            pdf_status = commands.getstatusoutput('ls {0:}'.format(re.sub('.tex$','.pdf',input_tex)))
+            if not pdf_status[0]:
+                self.Stdout('PDF file generated',pdf_status[1])
+            else:
+                raise RuntimeError('PDF not founed: {0:}'.format(pdf_status[1]))
 
-    def GetInterval(self,interval_list):
+    def _getInterval(self,interval_list):
         nbins = len(interval_list)-1
         interval_str_list = [r'$p_{T}$ Interval [GeV]']
         for n in range(nbins):
@@ -172,27 +228,36 @@ class BreakDown(toolkit.IOHandler):
         interval_str = ' & '.join(interval_str_list)
         interval_str += r'\\'
         return interval_str
-        
-        
-    def GetTex(self,tex_name,input_json,intervals,title,label):
-        intervals = self.GetInterval(intervals)
-        tabular_list = self.MaketabularList(input_json,intervals)
-        table = self.WrapTable(tabular_list,title,label)
-        document = self.WrapDocument(table)
-        tex_path = self.DumpTex(tex_name,document)
-        self.MakePDF(tex_path)
 
+    def _updateEntries(self,entriesA,entriesB):
+        entries = deepcopy(entriesA)
+        for name,items in self.uncertainties.iteritems():
+            for itm in items:
+                if not itm in entriesA[name]:
+                    if itm in entriesB[name]:
+                        entries[name][itm] = entriesB[name][itm]
+        return entries
 
+    def _getTex(self,config,tex_name,entries,intervals,title,isGroup):
+        config = deepcopy(config)
+        config.update(self.config_default)
+        tabular_list = []
+        addEntry = self._addEntry(tabular_list,entries,isGroup,isPercentage=False)
+        addEntryP = self._addEntry(tabular_list,entries,isGroup,isPercentage=True)
+        intervals = self._getInterval(intervals)
+        tabular_list = self._maketabularList(entries,tabular_list,addEntry,addEntryP,intervals)
 
-
+        table = self._wrapTable(config,tabular_list,title,type(self).label)
+        document = self._wrapDocument(table,config)
+        tex_path = self._dumpTex(tex_name,document)
+        self._makePDF(tex_path)
+        type(self).label += 1
 
 class GroupSystmatics(object):
     def __init__(self):
         self.uncertainties = {
-
             #mcstat
-
-            r'MC stat. unc.':[
+            r'Limited size of simulated samples':[
                 'mc stats',
             ],
 
@@ -201,7 +266,7 @@ class GroupSystmatics(object):
                 'tt PDFRW',
             ],
 
-            r'Electron eff./res./scale':[
+            r'Electron efficiency/resolution/scale/trigger':[
                 'SysEL_EFF_Reco_TotalCorrUncertainty',
                 'SysEL_EFF_Iso_TotalCorrUncertainty',
                 'SysEL_EFF_Trigger_TotalCorrUncertainty',
@@ -209,10 +274,10 @@ class GroupSystmatics(object):
                 'SysEG_RESOLUTION_ALL',
                 'SysEG_SCALE_ALL',
             ],
-            r'Jet energy resolution':[
+            r'Jet energy resolution (JER)':[
                 'SysJET_JER_SINGLE_NP',
             ],
-            r'Jet energy scale':[
+            r'Jet energy scale (JES)':[
                 'SysJET_BJES_Response',
                 'SysJET_PunchThrough_MC15',
                 'SysJET_Flavor_Composition',
@@ -229,7 +294,7 @@ class GroupSystmatics(object):
                 'SysJET_EffectiveNP_5',
                 'SysJET_EffectiveNP_6restTerm',
             ],
-            r'Muon eff./res./scale':[
+            r'Muon efficiency/resolution/scale/trigger':[
                 'SysMUONS_SCALE',
                 'SysMUONS_ID',
                 'SysMUONS_MS',
@@ -242,7 +307,7 @@ class GroupSystmatics(object):
                 'SysMUON_ISO_STAT',
                 'SysMUON_ISO_SYS',
             ],
-            r'NNLO Top $p_{T}$, $t\bar{t}$ $p_{T}$ reweighting ($t\bar{t}$)':[
+            r'NNLO top $p_{T}$, $t\bar{t}$ $p_{T}$ reweighting ($t\bar{t}$)':[
                 'SysTOP_PT_RW',
                 'SysTTBAR_PT_RW',
             ],
@@ -258,10 +323,10 @@ class GroupSystmatics(object):
                 'SysMET_SoftTrk_ResoPara',#TODO added
                 'SysMET_SoftTrk_ResoPerp',#TODO added
             ],
-            r'C jet mis-tag rate':[
+            r'c-jet mis-tag rate':[
                 'SysFT_EFF_C_systematics',
             ],
-            r'Light jet mis-tag rate':[
+            r'Light-flavour jet mis-tag rate':[
                 'SysFT_EFF_Light_systematics',
             ],
             r'JVT':[
@@ -279,7 +344,7 @@ class GroupSystmatics(object):
             r'Matrix element modelling ($t\bar{t}$)':[
                 'tt HardScatter',
             ],
-            r'Modelling (single top)':[
+            r'Matrix element modelling (single top)':[
                 'stop HardScatter',
             ],
             r'Parton shower / Hadronisation (single top)':[
@@ -288,7 +353,7 @@ class GroupSystmatics(object):
             r'More / less radiation (single top)':[
                 'stop Radiation',
             ],
-            r'$t\bar{t}$ diagram overlap (single top)':[
+            r'DR vs. DS (single top)':[
                 'stop DRDS',
             ],
 
@@ -298,19 +363,19 @@ class GroupSystmatics(object):
 
             #normalization samples
 
-            r'Norm. Z+b/c':[
+            r'Normalisation Z+b/c':[
                 'SysZHF',
             ],
-            r'Norm. single top':[
+            r'Normalisation single top':[
                 'WtScale',
             ],
-            r'Norm. diboson':[
+            r'Normalisation diboson':[
                 'dibosonScale'
             ],
-            r'Norm. Z+jets':[
+            r'Normalisation Z+jets':[
                 'zjetsScale',
             ],
-            r'Norm. lepton fakes':[
+            r'Normalisation misid. leptons':[
                 'fakeScale',
             ],
 
@@ -328,4 +393,27 @@ class GroupSystmatics(object):
             return self.uncertainties
         else:
             raise ValueError
-    
+
+    def MapPickle(self):
+        NameMap = { 
+            'mc_stat' : 'mc stats',
+            'dt_stat' : 'data stats', 
+            'FakeScale' : 'fakeScale',
+            'Luminosity' : 'lumiScale',
+            'norm diboson' : 'dibosonScale',
+            'norm wt' : 'WtScale',
+            'norm zjets': 'zjetsScale',            
+            'mod_stop_StopDRDS' : 'stop DRDS',
+            'mod_stop_StopFragmentation' : 'stop Fragmentation',
+            'mod_stop_StopRadiation' : 'stop Radiation',
+            'mod_tt_ttbarFragmentation' : 'tt Fragmentation',
+            'mod_tt_ttbarHardScatter' : 'tt HardScatter',
+            'mod_tt_ttbarPDFRW' : 'tt PDFRW',
+            'mod_tt_ttbarRadiation' : 'tt Radiation',
+            'mod_z+jets_zjetsModelling' : 'zjets Modelling',
+        }
+        return NameMap
+
+if __name__ == '__main__':
+    data = {'1':{2:{'20':{10:100}}}}
+    FooSearch = toolkit.Searcher(data)
