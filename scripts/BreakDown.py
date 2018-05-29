@@ -195,7 +195,7 @@ class BreakDown(toolkit.IOHandler):
         table.insert(0,r'\documentclass{article}')
         table.insert(1,r'\usepackage{booktabs}')
         table.insert(2,r'\usepackage{graphics}')
-        table.insert(3,r'\usepackage{caption}')        
+        table.insert(3,r'\usepackage{caption}')
         table.insert(4,r'\usepackage[paperwidth={0:}mm,paperheight={1:}mm]{{geometry}}'.format(config['width'],config['height']))
         table.insert(5,r'\geometry{{tmargin={0:}mm,bmargin={1:}mm,lmargin={2:}mm,rmargin={3:}mm}}'.format(*config['t_b_l_rMargin']))
         return table
@@ -221,7 +221,7 @@ class BreakDown(toolkit.IOHandler):
                 raise RuntimeError('PDF not founed: {0:}'.format(pdf_status[1]))
 
     def _getInterval(self,interval_list):
-        nbins = len(interval_list)-1
+       nbins = len(interval_list)-1
         interval_str_list = [r'$p_{T}$ Interval [GeV]']
         for n in range(nbins):
             interval_str_list.append('{0:}-{1:}'.format(interval_list[n],interval_list[n+1]))

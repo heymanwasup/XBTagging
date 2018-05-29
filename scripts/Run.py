@@ -43,8 +43,12 @@ def main():
 
     if args.all or args.efficiency:
         isLoadRawFromCache = False
-            worker = RetrieveEfficiency.RetrieveEfficiency(args.input_file, output_path, args.config_file,isLoadRawFromCache)
-            worker.Work(args.parallel)
+        worker = RetrieveEfficiency.RetrieveEfficiency(args.input_file, output_path, args.config_file,isLoadRawFromCache)
+        
+        if args.parallel:
+            worker.WorkParallel()            
+        else:
+            worker.Work()
 
     json_path,jsons,jsons_raw = CollectJsonFiles(output_path)
     

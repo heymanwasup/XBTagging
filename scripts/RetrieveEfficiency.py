@@ -1,4 +1,4 @@
-import sys,os,time,pickle,imp,hashlib,importlib,json,itertools,re,copy,array,functools,math,operator
+import sys,os,time,pickle,imp,hashlib,importlib,json,itertools,re,copy,array,functools,math,operator,commands
 import ROOT as R
 import root_toolkit
 import toolkit
@@ -11,37 +11,76 @@ Make the configuration info and feed it to Caliber.
 class RetrieveEfficiency(object):
   def __init__(self,input_file,output_path,run_cfg_path,isLoadRawFromCache=True):
     #the /path/to/overall_configure_file should be invariant
-    self.output_path = output_path
+    self.output_path = '{0:}/jsons_TagProbe'.format(output_path)
     self.isLoadRawFromCache = isLoadRawFromCache
     self.input_file = input_file
 
     overall_config = toolkit.json_load('./data/Overall_Info.json')
     run_config = toolkit.json_load(run_cfg_path) 
 
-    calibration_config = self.CalibrationConfig(overall_config,run_config)
-    #toolkit.DumpToJson(calibration_config,open('test_cfg.json','w'))
-    isDEBUG=False
-    if isDEBUG:
-      raise RuntimeError('CCDEBUG')
-    
-    #calibration_config['modellings']={}
+    self.calibration_config = self.CalibrationConfig(overall_config,run_config)
     
 
   def Work(self):
-      caliber = Caliber(input_file,output_path,isLoadRawFromCache)
-      caliber.Run(calibration_config)
-    
+      caliber = Caliber(self.input_file,self.output_path,self.isLoadRawFromCache)
+      caliber.Run(self.calibration_config)
     
   def WorkParallel(self):
       output_path = self.output_path
-      
       output_path,project_name = os.path.split(output_path)
       if len(project_name)==0:
         output_path,project_name = os.path.split(output_path)
 
-      with open('./submit/{0:}'.format(project_name), 'w') as f:
-        toolkit.DumpToJson(data,f)
-      
+      toolkit.mkdir('./{0:}/submit'.format(self.output_path))
+
+      config = copy.deepcopy(self.calibration_config)
+      cats = config['cats']
+
+      keys = cats.keys()
+      values = itertools.product(*[cats[key] for key in keys])
+      jobids = []
+      for value in values:
+        name = '_'.join([str(k[0])+'_'+str(k[1]) for k in zip(keys, value)])
+
+        #print name
+        for n,key in enumerate(keys):
+          cats[key] = [ value[n] ]
+        config_name = './{0:}/submit/Config_{1:}.json'.format(self.output_path,name)
+        script_name = './{0:}/submit/Submit_{1:}.sh'.format(self.output_path,name)
+        log_name = './{0:}/submit/Log_{1:}'.format(self.output_path,name)
+
+        with open(config_name, 'w') as f:
+          toolkit.DumpToJson(config,f)
+        
+
+        pwd = os.environ['PWD']
+        isLoadRaw = '--load_raw' if self.isLoadRawFromCache else ''
+        with open(script_name, 'w') as f:
+          print >>f, 'INPUT="{0:}"'.format(self.input_file)
+          print >>f, 'OUTPUT="{0:}"'.format(self.output_path)
+          print >>f, 'LOADRAW="{0:}"'.format(int(self.isLoadRawFromCache))
+          print >>f, 'CONFIG="{0:}"'.format(config_name)
+          print >>f, 'cd {0:}'.format(pwd)
+          print >>f, 'source ./setup.sh'
+          print >>f, 'python ./scripts/submit_hook.py --input_file ${INPUT} --output_path ${OUTPUT} --config_file ${CONFIG} '+isLoadRaw
+        
+        cmd = 'qsub -cwd -P P_atlas -l sps=1 -l h_vmem=8g -q long -N {0:} -o {1:}.log -e {1:}.err {2:}'.format(name,log_name,script_name)
+        jobids.append(name)
+        res = commands.getstatusoutput(cmd)
+        print res[1]
+
+      join_jobs = './submit/{0:}/Join'.format(project_name)
+      with open(join_jobs+'.sh', 'w') as f:
+        print >>f,'#!/bin/bash'
+        print >>f, 'cd {0:}'.format(pwd)
+        print >>f,'echo "Finished!"'
+      jids = ','.join(jobids)
+      cmd_join = 'qsub -cwd -o {0:}.log -e {0:}.err -hold_jid {1:} -sync y {0:}.sh'.format(join_jobs,jids)
+
+      print '\nWaiting for all jobs to be finished'
+      res = commands.getstatusoutput(cmd_join)
+      print res
+
       raise RuntimeError('debug')
 
   def CalibrationConfig(self,overall_cfg,run_cfg):
@@ -84,16 +123,13 @@ class RetrieveEfficiency(object):
 class Caliber(toolkit.IOHandler):
       
 
-  def __init__(self,input_file,output_path,calibration_config,isLoadRawFromCache):
-    self.outputDir = '{0:}/jsons_TagProbe'.format(output_path)
+  def __init__(self,input_file,output_path,isLoadRawFromCache):
+    self.outputDir = output_path
     self.inputFile = input_file
     self.isLoadRawFromCache = isLoadRawFromCache
 
-    self.LoadingCfg(calibration_config)
-
-
   def Initialize(self):
-    print self.inputFile
+    #print self.inputFile
     self.file      = R.TFile(self.inputFile)
     self._binnings = array.array('d',self._binnings)
     self.HistR = GetHistClass('Raw',len(self._binnings)-1)
@@ -162,36 +198,57 @@ class Caliber(toolkit.IOHandler):
       self.CurrentItem_Str =  '_'.join(['{0:}_{1:}'.format(key,self.CurrentItem[key]) for key in self.IterKeys])
       self.IterCounter += 1
       status = True
+
+    self.RedirectIO()
     return status
 
-  def Run(self):
+  def RedirectIO(self):
+    toolkit.mkdir('{0:}/logs'.format(self.outputDir))
+    logfile = '{0:}/logs/{1:}'.format(self.outputDir,self.CurrentItem_Str)
+
+    self.BindOutput('Stdout', 'Stdout', logfile + '.stdout')
+    self.BindOutput('Warning', 'Warning', logfile + '.warning')
+    self.BindOutput('FBIWarning', 'FBIWarning', logfile + '.fbiwarning')
+
+  def Run(self,calibration_config):
+    self.LoadingCfg(calibration_config)
     self.Initialize()
 
     while self.Next():
-      print self.CurrentItem_Str
       self.PerformTagAndProbe()
 
   def PerformTagAndProbe(self):
-
+    n = 1
+    self.Stdout('debug',n);n+=1
     raw = self.GetRaw()
     raw_nominal = self.LoadNominal(raw)
-
+    self.Stdout('debug',n);n+=1
     raw_scales = self.GetRawScales()
+    self.Stdout('debug',n);n+=1
     raw_variations = self.GetRawVariations()
-
+    self.Stdout('debug',n);n+=1
     dish_nominal = self.CookNominal(raw_nominal)  
+    self.Stdout('debug',n);n+=1
     dish_modellings = self.CookModellings(raw,raw_nominal)
+    self.Stdout('debug',n);n+=1
     dish_scales = self.CookScales(raw_scales)
+    self.Stdout('debug',n);n+=1
     dish_variations = self.CookVariations(raw_variations,raw_nominal['data'])
+    self.Stdout('debug',n);n+=1
       
     err_stat = self.ErrorStat(raw_nominal)  
+    self.Stdout('debug',n);n+=1
     err_modellings = self.ErrorModellings(dish_modellings)
+    self.Stdout('debug',n);n+=1
     err_scales = self.ErrorScales(dish_scales)
+    self.Stdout('debug',n);n+=1
     err_variations = self.ErrorVariations(dish_variations)
+    self.Stdout('debug',n);n+=1
     
+
     self.DumpResults(dish_nominal,
         err_stat,err_modellings,err_scales,err_variations)
-
+    
     self.DumpDishes(dish_nominal,dish_scales,dish_variations,dish_modellings)
 
 
@@ -210,25 +267,34 @@ class Caliber(toolkit.IOHandler):
     return data
 
   def GetRawScales(self):
+    n=1
+    self.Stdout('debug+rawscale',n);n+=1
     samples = self.nominal_samples
     res = {}
     for name,scale in self._scales.items():
       scale['status'] = 0
+      self.Stdout('debug+rawscale',n);n+=1
       down = self.LoadNominal(self.GetRawDataMC(samples,scale))
+      self.Stdout('debug+rawscale',n);n+=1
       scale['status'] = 1
       up   = self.LoadNominal(self.GetRawDataMC(samples,scale))
+      self.Stdout('debug+rawscale',n);n+=1
       res[name] = [down,up]
     return res
 
   def GetRawVariations(self):
+    n=1
+    self.Stdout('debug+rawvar',n);n+=1
     if self._onlyNominal:
+      self.Stdout('debug+rawvar in if',n);n+=1
       return {}
+    self.Stdout('debug+rawvar',n);n+=1
     fmt_var  = self._format['variation']['hist']
     fmt_nominal = self._format['nominal']['hist']
     samples = self.nominal_samples
     res = {}
     var_nominal = self._format['nominal']['var']
-
+    self.Stdout('debug+rawvar',n);n+=1
     for variation,up_down in self.varsList.iteritems():
       if re.match(var_nominal,up_down[0]):
         fmt_down = fmt_nominal
@@ -239,10 +305,11 @@ class Caliber(toolkit.IOHandler):
       else:
         fmt_up = fmt_var
 
-
       down = self.LoadNominal(self.GetRawMC(fmt_down,up_down[0],samples))
       up   = self.LoadNominal(self.GetRawMC(fmt_up,up_down[1],samples))
       res[variation] = [down,up]
+      self.Stdout('debug+rawvar',n,variation);n+=1
+    self.Stdout('debug+rawvar',n,'ended');n+=1
     return res
 
   def GetRawMC(self,fmt,var,samples,scale={}):
@@ -453,10 +520,10 @@ class Caliber(toolkit.IOHandler):
     square = lambda x : ALG().Map(isHist,lambda x:x**2,x)
     sqt   = lambda x : ALG().Map(isHist,lambda x:x.sqrt(),x)
     r = R.TRandom3() 
-    m1_mc = emptyD(raw) 
-    m2_mc = emptyD(raw) 
-    m1_dt = emptyD(raw) 
-    m2_dt = emptyD(raw) 
+    m1_mc = emptyD(raw)
+    m2_mc = emptyD(raw)
+    m1_dt = emptyD(raw)
+    m2_dt = emptyD(raw)
     for _ in range(self._nToys):
       Rm1_dt, Rm1_mc = self.CookRandom(r,raw) 
       Rm2_dt, Rm2_mc = square(Rm1_dt),    square(Rm1_mc)
@@ -489,6 +556,7 @@ class Caliber(toolkit.IOHandler):
         if self._rebinning:
           th1 = th1.Rebin(len(self._binnings)-1,'',self._binnings)
         hist_temp = self.HistR(th1)
+        del th1
         hist_temp.Scale(hsf)
         hist.Add(hist_temp)
     status, verbose = hist.Report()    
@@ -554,6 +622,8 @@ class Caliber(toolkit.IOHandler):
       dump_err(data,err_mod,key)
       dump_err(data,err_scal,key)
       dump_err(data,err_var,key)
+
+    self.Stdout('going to dump results')  
     with open('%s/output_%s.json'%(self.outputDir,self.CurrentItem_Str),'w') as f:
       toolkit.DumpToJson(data,f)
 
@@ -570,6 +640,7 @@ class Caliber(toolkit.IOHandler):
       dump_dish_err(data,scales,key)
       dump_dish_err(data,variations,key)
       dump_dish_err(data,modellings,key)
+    self.Stdout('going to dump dishes')
     with open('%s/variations_%s.json'%(self.outputDir,self.CurrentItem_Str),'w') as f:
       toolkit.DumpToJson(data,f)    
 

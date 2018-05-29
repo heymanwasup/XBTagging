@@ -1,0 +1,3 @@
+[submodule "pyLib"]
+	path = pyLib
+	url = git@github.com:heymanwasup/pyLib.git

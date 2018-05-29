@@ -18,26 +18,25 @@ import argparse
 import inspect
 
 class IOHandler(object):
-    def __new__(cls,*args,**kw):
+    def __new__(cls,*args,**kw):        
         obj = super(type(cls),cls).__new__(cls,*args,**kw)
-        obj.start =  inspect.stack()[1][3]
         obj.debug = False
+
+        obj.BindOutput('Warning', 'Warning 0', '/dev/fd/0')
+        obj.BindOutput('Stdout', 'Stdout 1', '/dev/fd/1')
+        obj.BindOutput('FBIWarning', 'FBIWarning 2', '/dev/fd/2')
+
         return obj
 
     def SetDebug(debug):
       self.debug = debug
 
-    def Warning(self,*args):
-      self.PrintToFile('Warning 0','/dev/fd/0')(args)
+    def BindOutput(self,name,head,output):
+      self.start = inspect.stack()[-2][3]
+      setattr(self, name, self._printToFile(head,output))
 
-    def Stdout(self,*args):
-      self.PrintToFile('Stdout 1','/dev/fd/1')(args)
-
-    def FBIWarning(self,*args):
-      self.PrintToFile('FBIWarning 2','/dev/fd/2')(args)
-
-    def PrintToFile(self,name,fd='/dev/fd/1'):  
-        def Print(args):
+    def _printToFile(self,name,fd='/dev/fd/1'):
+        def Print(*args):
             outStr = self._encoding(name,args)
             with open(fd,'a') as f:
                 print >>f,outStr
@@ -60,14 +59,12 @@ class IOHandler(object):
         if itm == self.start:
           break
       trace_back.insert(n+1, '*{0:}*'.format(type(self).__name__))
-      trace_back = trace_back[1:-4]
-      if not self.debug: 
-        pass
+      trace_back = trace_back[1:-3]
+      if not self.debug:
         trace_back = trace_back[n:]
-      
+
       trace_back_str = '.'.join(trace_back)
       return trace_back_str
-
 
 class MyParser(argparse.ArgumentParser):
     def error(self, message):
@@ -381,7 +378,8 @@ def main():
       },
     },
   }
-  res = MergeDict_recurssive(Origin, Extern)
+  res = MergeDict_recursive(Origin, Extern)
   print res
+
 if __name__ == '__main__':
   main()
